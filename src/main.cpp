@@ -113,6 +113,8 @@ int main()
     // sub: reg_mem_reg 00'101'0dw  imm_reg_mem 100000sw  imm_accum  0001110w
     // cmp: reg_mem_reg 00'111'0dw  imm_reg_mem 100000sw  imm_accum  0011110w
 
+    enum OpIndex { ADD = 0, MOV = 1, SUB = 5, CMP = 7 };
+
     constexpr const char* operations[] = {
         {"add "}, // 0
         {"mov "}, // 1
@@ -133,7 +135,6 @@ int main()
 
         if (IsReg_Mem_Reg(byte))
         {
-            // I don't know how to better name specPart
             uint8_t opIndex = (byte & 0b0011'1000) >> 3;
             std::cout << operations[opIndex];
             uint8_t bitD = (byte & 2) >> 1;
@@ -186,7 +187,7 @@ int main()
                 {
                     uint16_t disp = CombineLoAndHiToWord(bytes, byteIndex);
                     if (bitW == 1)
-                        std::cout << effectiveAddresses[rm] << GetSign(disp) << std::to_string(abs((int16_t)disp)) << ']';
+                        std::cout << effectiveAddresses[rm] << GetSign(disp) << (int16_t)disp << ']';
                     else
                         std::cout << effectiveAddresses[rm] << " + " << disp << ']';
                 }
@@ -199,7 +200,7 @@ int main()
         else if (IsImm_Reg_Mem(byte))
         {
             uint8_t bitW  = (byte & 1);
-            uint8_t bitSW = (byte & 3);
+            uint8_t bitSW = (byte & 3); // bit s near w
 
             byte = bytes[++byteIndex];
             uint8_t mod     = (byte >> 6);
@@ -224,23 +225,39 @@ int main()
             }
             else if (mod == 0) // memory mode, no displacement follows
             {
-                std::cout << effectiveAddresses[rm] << "], ";
-                if (bitW == 0)
+                if (opIndex == OpIndex::MOV)
                 {
-                    uint16_t data = bytes[++byteIndex];
-                    std::cout << "byte " << data;
+                    std::cout << effectiveAddresses[rm] << "], ";
+                    if (bitW == 0)
+                    {
+                        uint16_t data = bytes[++byteIndex];
+                        std::cout << "byte " << data;
+                    }
+                    else
+                    {
+                        uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
+                        std::cout << "word " << data;
+                    }
                 }
                 else
                 {
-                    uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
-                    std::cout << "word " << data;
+                    if (bitW == 0)
+                    {
+                        uint16_t data = bytes[++byteIndex];
+                        std::cout << "byte " << effectiveAddresses[rm] << "], " << data;
+                    }
+                    else
+                    {
+                        uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
+                        std::cout << "word " << effectiveAddresses[rm] << "], " << data;
+                    }
                 }
             }
             else if (mod == 1) // memory mode, 8-bit displacement follows
             {
                 uint16_t disp = bytes[++byteIndex];
                 if (bitW == 1)
-                    std::cout << effectiveAddresses[rm] << " " << (int16_t)disp << ']';
+                    std::cout << effectiveAddresses[rm] << GetSign(disp) << abs((int16_t)disp) << ']';
                 else
                     std::cout << effectiveAddresses[rm] << " + " << disp << ']';
             }
@@ -250,16 +267,33 @@ int main()
                 //if (bitW == 1)
                 //    std::cout << effectiveAddresses[rm] << " - " << std::numeric_limits<uint16_t>::max() - disp + 1 << ']';
                 //else
-                    std::cout << effectiveAddresses[rm] << " + " << disp << "], ";
-                if (bitW == 0)
+                if (opIndex == OpIndex::MOV)
                 {
-                    uint16_t data = bytes[++byteIndex];
-                    std::cout << "byte " << data;
+                    std::cout << effectiveAddresses[rm] << " + " << disp << "], ";
+                    if (bitW == 0)
+                    {
+                        uint16_t data = bytes[++byteIndex];
+                        std::cout << "byte " << data;
+                    }
+                    else
+                    {
+                        uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
+                        std::cout << "word " << data;
+                    }
                 }
                 else
                 {
-                    uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
-                    std::cout << "word " << data;
+                    uint8_t bitS = (byte & 2) >> 1; // bit s near w
+                    if (bitW == 0)
+                    {
+                        uint16_t data = bytes[++byteIndex];
+                        std::cout << "byte " << effectiveAddresses[rm] << " + " << disp << "], " << data;
+                    }
+                    else
+                    {
+                        uint16_t data = bytes[++byteIndex];
+                        std::cout << "word " << effectiveAddresses[rm] << " + " << disp << "], " << data;
+                    }
                 }
             }
         }
