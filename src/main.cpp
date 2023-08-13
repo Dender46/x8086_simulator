@@ -7,7 +7,7 @@
 constexpr uint8_t opcodeMOVImmediateToREG       = 0b1011'0000;
 constexpr uint8_t opcodeMOVAccumulator          = 0b1010'0000;
 
-void PrintBits(uint8_t byte)
+void PrintByte(uint8_t byte)
 {
     for (int k = 7; k >= 0; k--)
     {
@@ -39,23 +39,37 @@ std::string ByteInStr2(uint16_t byte)
     return result;
 }
 
-const char* GetSign(int8_t byte)
+const char* GetSign8(int8_t byte)
+{
+    return byte >= 0 ? " + " : " - ";
+}
+
+const char* GetSign16(int16_t byte)
 {
     return byte >= 0 ? " + " : " - ";
 }
 
 bool IsReg_Mem_Reg(uint8_t byte)
 {
-    return (byte & 0b1111'1000) == 0b1000'1000  // MOV
-        || (byte & 0b1111'1000) == 0b0000'0000  // ADD
-        || (byte & 0b1111'1000) == 0b0010'1000  // SUB
-        || (byte & 0b1111'1000) == 0b0011'1000; // CMP
+    uint8_t mask = 0b1111'1100;
+    return (byte & mask) == 0b1000'1000  // MOV
+        || (byte & mask) == 0b0000'0000  // ADD
+        || (byte & mask) == 0b0010'1000  // SUB
+        || (byte & mask) == 0b0011'1000; // CMP
 }
 
 bool IsImm_Reg_Mem(uint8_t byte)
 {
     return ((byte >> 1) << 1) == 0b1100'0110  // MOV
         || ((byte >> 2) << 2) == 0b1000'0000; // ADD, SUB, CMPs
+}
+
+bool IsImm_Accumulator(uint8_t byte)
+{
+    uint8_t mask = 0b1111'1110;
+    return (byte & mask) == 0b0000'0100  // ADD
+        || (byte & mask) == 0b0010'1100  // SUB
+        || (byte & mask) == 0b0011'1100; // CMP
 }
 
 uint16_t CombineLoAndHiToWord(const std::vector<uint8_t>& bytesArr, int& byteIndex)
@@ -83,7 +97,7 @@ int main()
 
     for (const auto& byte : bytes)
     {
-        //PrintBits(byte);
+        //PrintByte(byte);
     }
 
     constexpr const char* registers[][2] = {
@@ -110,10 +124,10 @@ int main()
 
     // mov: reg_mem_reg 10'001'0dw  imm_reg_mem 1100011w  imm_to_reg 1011wreg
     // add: reg_mem_reg 00'000'0dw  imm_reg_mem 100000sw  imm_accum  0000010w
-    // sub: reg_mem_reg 00'101'0dw  imm_reg_mem 100000sw  imm_accum  0001110w
+    // sub: reg_mem_reg 00'101'0dw  imm_reg_mem 100000sw  imm_accum  0010110w
     // cmp: reg_mem_reg 00'111'0dw  imm_reg_mem 100000sw  imm_accum  0011110w
 
-    enum OpIndex { ADD = 0, MOV = 1, SUB = 5, CMP = 7 };
+    enum OpIndex { ADD = 0, MOV = 1, SUB = 5, CMP = 7, UNDEFINED = -1 };
 
     constexpr const char* operations[] = {
         {"add "}, // 0
@@ -179,7 +193,7 @@ int main()
                 {
                     uint16_t disp = bytes[++byteIndex];
                     if (bitW == 1)
-                        std::cout << effectiveAddresses[rm] << GetSign(disp) << std::to_string(abs((int8_t)disp)) << ']';
+                        std::cout << effectiveAddresses[rm] << GetSign8(disp) << std::to_string(abs((int8_t)disp)) << ']';
                     else
                         std::cout << effectiveAddresses[rm] << " + " << disp << ']';
                 }
@@ -187,7 +201,7 @@ int main()
                 {
                     uint16_t disp = CombineLoAndHiToWord(bytes, byteIndex);
                     if (bitW == 1)
-                        std::cout << effectiveAddresses[rm] << GetSign(disp) << (int16_t)disp << ']';
+                        std::cout << effectiveAddresses[rm] << GetSign16(disp) << (int16_t)disp << ']';
                     else
                         std::cout << effectiveAddresses[rm] << " + " << disp << ']';
                 }
@@ -199,8 +213,8 @@ int main()
         }
         else if (IsImm_Reg_Mem(byte))
         {
-            uint8_t bitW  = (byte & 1);
-            uint8_t bitSW = (byte & 3); // bit s near w
+            uint8_t bitW = (byte & 1);
+            uint8_t bitS = (byte & 2) >> 1; // bit s near w
 
             byte = bytes[++byteIndex];
             uint8_t mod     = (byte >> 6);
@@ -212,14 +226,14 @@ int main()
             if (mod == 3) // register mode
             {
                 std::cout << registers[rm][bitW] << ", ";
-                if (bitW == 0 || bitSW != 1)
+                if (bitS == 0 && bitW == 1)
                 {
-                    uint16_t data = bytes[++byteIndex];
+                    uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
                     std::cout << data;
                 }
                 else
                 {
-                    uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
+                    uint16_t data = bytes[++byteIndex];
                     std::cout << data;
                 }
             }
@@ -241,15 +255,17 @@ int main()
                 }
                 else
                 {
-                    if (bitW == 0)
+                    if (bitW == 1)
                     {
-                        uint16_t data = bytes[++byteIndex];
-                        std::cout << "byte " << effectiveAddresses[rm] << "], " << data;
+                        std::cout << "word " << effectiveAddresses[rm] << "], ";
+                        if (bitS == 0)
+                            std::cout << CombineLoAndHiToWord(bytes, byteIndex);
+                        else
+                            std::cout << std::to_string(bytes[++byteIndex]);
                     }
                     else
                     {
-                        uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
-                        std::cout << "word " << effectiveAddresses[rm] << "], " << data;
+                        std::cout << "byte " << effectiveAddresses[rm] << "], " << std::to_string(bytes[++byteIndex]);
                     }
                 }
             }
@@ -257,7 +273,7 @@ int main()
             {
                 uint16_t disp = bytes[++byteIndex];
                 if (bitW == 1)
-                    std::cout << effectiveAddresses[rm] << GetSign(disp) << abs((int16_t)disp) << ']';
+                    std::cout << effectiveAddresses[rm] << GetSign16(disp) << abs((int16_t)disp) << ']';
                 else
                     std::cout << effectiveAddresses[rm] << " + " << disp << ']';
             }
@@ -283,16 +299,18 @@ int main()
                 }
                 else
                 {
-                    uint8_t bitS = (byte & 2) >> 1; // bit s near w
-                    if (bitW == 0)
+                    if (bitW == 1)
                     {
-                        uint16_t data = bytes[++byteIndex];
-                        std::cout << "byte " << effectiveAddresses[rm] << " + " << disp << "], " << data;
+                        std::cout << "word " << effectiveAddresses[rm] << " + " << disp << "], ";
+                        if (bitS == 0)
+                            std::cout << CombineLoAndHiToWord(bytes, byteIndex);
+                        else
+                            std::cout << std::to_string(bytes[++byteIndex]);
                     }
                     else
                     {
                         uint16_t data = bytes[++byteIndex];
-                        std::cout << "word " << effectiveAddresses[rm] << " + " << disp << "], " << data;
+                        std::cout << "byte " << effectiveAddresses[rm] << " + " << disp << "], " << data;
                     }
                 }
             }
@@ -327,6 +345,25 @@ int main()
             else
             {
                 std::cout << "[" << data << "], ax";
+            }
+        }
+        else if (IsImm_Accumulator(byte))
+        {
+            const auto opIndex = 
+                (byte & 0b0000'0100) == 0b0000'0100 ? OpIndex::ADD :
+                (byte & 0b0010'1100) == 0b0000'0100 ? OpIndex::SUB :
+                (byte & 0b0011'1100) == 0b0000'0100 ? OpIndex::CMP : OpIndex::UNDEFINED;
+            std::cout << operations[opIndex];
+            uint8_t bitW = (byte & 1);
+            if (bitW == 0)
+            {
+                uint8_t data = bytes[++byteIndex];
+                std::cout << "al, " << GetSign8(data) << std::to_string(abs((int8_t)data));
+            }
+            else
+            {
+                uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
+                std::cout << "ax, " << GetSign16(data) << abs((int16_t)data);
             }
         }
         std::cout << '\n';
