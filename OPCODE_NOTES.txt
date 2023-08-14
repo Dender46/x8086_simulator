@@ -1,0 +1,39 @@
+jo:     *0111'0000
+jno:    *0111'0001
+jb:      0111'0010
+jnae:    0111'0010
+jnb:     0111'0011
+jae:     0111'0011
+je:      0111'0100
+jz:      0111'0100
+jnz:     0111'0101
+jne:     0111'0101
+jbe:     0111'0110
+jna:     0111'0110
+ja:      0111'0111
+jnbe:    0111'0111
+js:     *0111'1000
+jns:    *0111'1001
+jp:      0111'1010
+jpe:     0111'1010
+jnp:     0111'1011
+jpo:     0111'1011
+jl:      0111'1100
+jnge:    0111'1100
+jnl:     0111'1101
+jge:     0111'1101
+jle:     0111'1110
+jng:     0111'1110
+jnle:    0111'1111
+jg:      0111'1111
+loopnz:  1110'0000
+loopne:  1110'0000
+loopz:   1110'0001
+loope:   1110'0001
+loop:   *1110'0010
+jcxz:   *1110'0011
+
+mov: reg_mem_reg 10'001'0dw  imm_reg_mem 1100011w  imm_to_reg 1011wreg
+add: reg_mem_reg 00'000'0dw  imm_reg_mem 100000sw  imm_accum  0000010w
+sub: reg_mem_reg 00'101'0dw  imm_reg_mem 100000sw  imm_accum  0010110w
+cmp: reg_mem_reg 00'111'0dw  imm_reg_mem 100000sw  imm_accum  0011110w
