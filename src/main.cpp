@@ -78,6 +78,12 @@ bool IsJump(uint8_t byte)
     return (byte & mask) == 0b0111'0000;
 }
 
+bool IsLoop(uint8_t byte)
+{
+    uint8_t mask = 0b1111'0000;
+    return (byte & mask) == 0b1110'0000;
+}
+
 uint16_t CombineLoAndHiToWord(const std::vector<uint8_t>& bytesArr, int& byteIndex)
 {
     const uint16_t byteLow  = bytesArr[++byteIndex];
@@ -137,8 +143,8 @@ int main()
         //"jae ",
         "je ",
         //"jz ",
-        "jnz ",
-        //"jne ",
+        "jne ",
+        //"jnz ",
         "jbe ",
         //"jna ",
         "ja ",
@@ -419,9 +425,14 @@ int main()
             uint8_t opIndex = byte & 0b0000'1111;
             std::cout << jumps[opIndex] << std::to_string((int8_t)bytes[++byteIndex]);
         }
+        else if (IsLoop(byte))
+        {
+            uint8_t opIndex = byte & 0b0000'0011;
+            std::cout << loops[opIndex] << std::to_string((int8_t)bytes[++byteIndex]);
+        }
+
         std::cout << '\n';
         byteIndex++;
-
     }
     return 0;
 }
