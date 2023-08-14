@@ -171,7 +171,8 @@ int main()
                 }
                 if (mod == 0) // memory mode, no displacement follows
                 {
-                    if (rm == 0b0110) // BUT if a special occassion for a DIRECT ADDRESS case
+                    // BUT if a special occassion for a DIRECT ADDRESS case
+                    if (rm == 0b0110)
                     {
                         if (bitW == 0)
                         {
@@ -257,7 +258,12 @@ int main()
                 {
                     if (bitW == 1)
                     {
-                        std::cout << "word " << effectiveAddresses[rm] << "], ";
+                         // SPECIAL CASE
+                        if (rm == 0b0110)
+                            std::cout << "word [" << CombineLoAndHiToWord(bytes, byteIndex) << "], ";
+                        else
+                            std::cout << "word " << effectiveAddresses[rm] << "], ";
+
                         if (bitS == 0)
                             std::cout << CombineLoAndHiToWord(bytes, byteIndex);
                         else
