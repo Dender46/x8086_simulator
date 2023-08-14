@@ -72,6 +72,12 @@ bool IsImm_Accumulator(uint8_t byte)
         || (byte & mask) == 0b0011'1100; // CMP
 }
 
+bool IsJump(uint8_t byte)
+{
+    uint8_t mask = 0b1111'0000;
+    return (byte & mask) == 0b0111'0000;
+}
+
 uint16_t CombineLoAndHiToWord(const std::vector<uint8_t>& bytesArr, int& byteIndex)
 {
     const uint16_t byteLow  = bytesArr[++byteIndex];
@@ -122,10 +128,45 @@ int main()
         {"[bx"},
     };
 
-    // mov: reg_mem_reg 10'001'0dw  imm_reg_mem 1100011w  imm_to_reg 1011wreg
-    // add: reg_mem_reg 00'000'0dw  imm_reg_mem 100000sw  imm_accum  0000010w
-    // sub: reg_mem_reg 00'101'0dw  imm_reg_mem 100000sw  imm_accum  0010110w
-    // cmp: reg_mem_reg 00'111'0dw  imm_reg_mem 100000sw  imm_accum  0011110w
+    constexpr const char* jumps[] = {
+        "jo ",
+        "jno ",
+        "jb ",
+        //"jnae ",
+        "jnb ",
+        //"jae ",
+        "je ",
+        //"jz ",
+        "jnz ",
+        //"jne ",
+        "jbe ",
+        //"jna ",
+        "ja ",
+        //"jnbe ",
+        "js ",
+        "jns ",
+        "jp ",
+        //"jpe ",
+        "jnp ",
+        //"jpo ",
+        "jl ",
+        //"jnge ",
+        "jnl ",
+        //"jge ",
+        "jle ",
+        //"jng ",
+        "jnle ",
+        //"jg ",
+    };
+
+    constexpr const char* loops[] = {
+        "loopnz ",
+        //"loopne ",
+        "loopz ",
+        //"loope ",
+        "loop ",
+        "jcxz ",
+    };
 
     enum OpIndex { ADD = 0, MOV = 1, SUB = 5, CMP = 7, UNDEFINED = -1 };
 
@@ -372,6 +413,11 @@ int main()
                 uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
                 std::cout << "ax, " << GetSign16(data) << abs((int16_t)data);
             }
+        }
+        else if (IsJump(byte))
+        {
+            uint8_t opIndex = byte & 0b0000'1111;
+            std::cout << jumps[opIndex] << std::to_string((int8_t)bytes[++byteIndex]);
         }
         std::cout << '\n';
         byteIndex++;
