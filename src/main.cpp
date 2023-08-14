@@ -411,13 +411,13 @@ int main()
             uint8_t bitW = (byte & 1);
             if (bitW == 0)
             {
-                uint8_t data = bytes[++byteIndex];
-                std::cout << "al, " << GetSign8(data) << std::to_string(abs((int8_t)data));
+                int8_t data = bytes[++byteIndex];
+                std::cout << "al, " << std::to_string(data);
             }
             else
             {
                 uint16_t data = CombineLoAndHiToWord(bytes, byteIndex);
-                std::cout << "ax, " << GetSign16(data) << abs((int16_t)data);
+                std::cout << "ax, " << data;
             }
         }
         else if (IsJump(byte))
