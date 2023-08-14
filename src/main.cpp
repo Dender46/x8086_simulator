@@ -355,10 +355,11 @@ int main()
         }
         else if (IsImm_Accumulator(byte))
         {
+            uint8_t mask = 0b0011'1100;
             const auto opIndex = 
-                (byte & 0b0000'0100) == 0b0000'0100 ? OpIndex::ADD :
-                (byte & 0b0010'1100) == 0b0000'0100 ? OpIndex::SUB :
-                (byte & 0b0011'1100) == 0b0000'0100 ? OpIndex::CMP : OpIndex::UNDEFINED;
+                (byte & mask) == 0b0000'0100 ? OpIndex::ADD :
+                (byte & mask) == 0b0010'1100 ? OpIndex::SUB :
+                (byte & mask) == 0b0011'1100 ? OpIndex::CMP : OpIndex::UNDEFINED;
             std::cout << operations[opIndex];
             uint8_t bitW = (byte & 1);
             if (bitW == 0)
