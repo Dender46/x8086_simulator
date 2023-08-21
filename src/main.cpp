@@ -9,9 +9,6 @@ typedef uint16_t    u16;
 typedef int8_t      s8;
 typedef int16_t     s16;
 
-constexpr u8 opcodeMOVImmediateToREG       = 0b1011'0000;
-constexpr u8 opcodeMOVAccumulator          = 0b1010'0000;
-
 void PrintByte(u8 byte)
 {
     for (int k = 7; k >= 0; k--)
@@ -84,11 +81,16 @@ bool IsLoop(u8 byte)
     return (byte & mask) == 0b1110'0000;
 }
 
-u16 CombineLoAndHiToWord(const std::vector<u8>& bytesArr, int& byteIndex)
+u16 CombineLoAndHiToWord(const std::vector<u8>& bytesArr, int* byteIndex)
 {
-    const u16 byteLow  = bytesArr[++byteIndex];
-    const u16 byteHigh = bytesArr[++byteIndex];
+    const u16 byteLow  = bytesArr[++(*byteIndex)];
+    const u16 byteHigh = bytesArr[++(*byteIndex)];
     return (byteHigh << 8) | ((u16)byteLow);
+}
+
+std::string CombineLoAndHiToString(const std::vector<u8>& bytesArr, int* byteIndex)
+{
+    return std::to_string(CombineLoAndHiToWord(bytesArr, byteIndex));
 }
 
 int main()
@@ -178,6 +180,8 @@ int main()
     int byteIndex = 0;
     while (byteIndex < bytes.size())
     {
+        std::string leftOperand, rightOperand;
+
         u8 byte = bytes[byteIndex];
         u8 bitD = (byte & 2) >> 1;
         u8 bitW = (byte & 1);
@@ -194,46 +198,44 @@ int main()
             u8 rm =  (byte & 0b00'000'111);
             if (mod == 3) // register mode
             {
-                std::cout << registers[rm][bitW] << ", " << registers[reg][bitW];
+                leftOperand  = registers[rm][bitW];
+                rightOperand = registers[reg][bitW];
             }
             else
             {
-                if (bitD == 1)
-                {
-                    std::cout << registers[reg][bitW] << ", ";
-                }
+                leftOperand  = registers[reg][bitW];
+                rightOperand = effectiveAddresses[rm];
+
                 if (mod == 0) // memory mode, no displacement follows
                 {
                     // BUT if a special occassion for a DIRECT ADDRESS case
                     if (rm == 0b0110)
                     {
-                        u16 disp = bitW == 0 ? bytes[++byteIndex] : CombineLoAndHiToWord(bytes, byteIndex);
-                        std::cout << '[' << disp << ']';
-                    }
-                    else
-                    {
-                        std::cout << effectiveAddresses[rm] << ']';
+                        u16 disp = bitW == 0 ? bytes[++byteIndex] : CombineLoAndHiToWord(bytes, &byteIndex);
+                        rightOperand = '[' + disp;
                     }
                 }
                 else if (mod == 1) // memory mode, 8-bit displacement follows
                 {
-                    u16 disp = bytes[++byteIndex];
+                    s8 disp = bytes[++byteIndex];
                     if (bitW == 1)
-                        std::cout << effectiveAddresses[rm] << GetSign(disp) << std::to_string(abs((s8)disp)) << ']';
+                        rightOperand += GetSign(disp) + std::to_string(abs(disp));
                     else
-                        std::cout << effectiveAddresses[rm] << " + " << disp << ']';
+                        rightOperand += " + " + std::to_string(disp);
                 }
                 else if (mod == 2) // memory mode, 16-bit displacement follows
                 {
-                    u16 disp = CombineLoAndHiToWord(bytes, byteIndex);
+                    u16 disp = CombineLoAndHiToWord(bytes, &byteIndex);
                     if (bitW == 1)
-                        std::cout << effectiveAddresses[rm] << GetSign(disp) << (s16)disp << ']';
+                        rightOperand += GetSign(disp) + std::to_string(disp);
                     else
-                        std::cout << effectiveAddresses[rm] << " + " << disp << ']';
+                        rightOperand += " + " + std::to_string(disp);
                 }
+
+                rightOperand += ']';
                 if (bitD == 0)
                 {
-                    std::cout << ", " << registers[reg][bitW];
+                    std::swap(leftOperand, rightOperand);
                 }
             }
         }
@@ -250,25 +252,18 @@ int main()
 
             if (mod == 3) // register mode
             {
-                std::cout << registers[rm][bitW] << ", ";
-                u16 data = bitS == 0 && bitW == 1 ? CombineLoAndHiToWord(bytes, byteIndex) : bytes[++byteIndex];
-                std::cout << data;
+                leftOperand = registers[rm][bitW];
+                rightOperand = bitS == 0 && bitW == 1 ? CombineLoAndHiToString(bytes, &byteIndex) : std::to_string(bytes[++byteIndex]);
             }
             else if (mod == 0) // memory mode, no displacement follows
             {
                 if (opIndex == OpIndex::MOV)
                 {
-                    std::cout << effectiveAddresses[rm] << "], ";
+                    leftOperand = effectiveAddresses[rm] + ']';
                     if (bitW == 0)
-                    {
-                        u16 data = bytes[++byteIndex];
-                        std::cout << "byte " << data;
-                    }
+                        rightOperand = "byte " + bytes[++byteIndex];
                     else
-                    {
-                        u16 data = CombineLoAndHiToWord(bytes, byteIndex);
-                        std::cout << "word " << data;
-                    }
+                        rightOperand = "word " + CombineLoAndHiToString(bytes, &byteIndex);
                 }
                 else
                 {
@@ -276,95 +271,89 @@ int main()
                     {
                          // SPECIAL CASE
                         if (rm == 0b0110)
-                            std::cout << "word [" << CombineLoAndHiToWord(bytes, byteIndex) << "], ";
+                            leftOperand = "word [" + CombineLoAndHiToString(bytes, &byteIndex) + ']';
                         else
-                            std::cout << "word " << effectiveAddresses[rm] << "], ";
+                            leftOperand = "word " + std::string(effectiveAddresses[rm]) + ']';
 
                         if (bitS == 0)
-                            std::cout << CombineLoAndHiToWord(bytes, byteIndex);
+                            rightOperand = CombineLoAndHiToString(bytes, &byteIndex);
                         else
-                            std::cout << std::to_string(bytes[++byteIndex]);
+                            rightOperand = std::to_string(bytes[++byteIndex]);
                     }
                     else
                     {
-                        std::cout << "byte " << effectiveAddresses[rm] << "], " << std::to_string(bytes[++byteIndex]);
+                        leftOperand = "byte " + std::string(effectiveAddresses[rm]) + ']';
+                        rightOperand = std::to_string(bytes[++byteIndex]);
                     }
                 }
             }
             else if (mod == 1) // memory mode, 8-bit displacement follows
             {
+                leftOperand = effectiveAddresses[rm];
                 u16 disp = bytes[++byteIndex];
                 if (bitW == 1)
-                    std::cout << effectiveAddresses[rm] << GetSign(disp) << abs((s16)disp) << ']';
+                    leftOperand += GetSign(disp) + std::to_string(abs((s16)disp)) + ']';
                 else
-                    std::cout << effectiveAddresses[rm] << " + " << disp << ']';
+                    leftOperand += " + " + disp + ']';
             }
             else if (mod == 2) // memory mode, 16-bit displacement follows
             {
-                u16 disp = CombineLoAndHiToWord(bytes, byteIndex);
+                const auto disp = CombineLoAndHiToString(bytes, &byteIndex);
                 //if (bitW == 1)
                 //    std::cout << effectiveAddresses[rm] << " - " << std::numeric_limits<u16>::max() - disp + 1 << ']';
                 //else
                 if (opIndex == OpIndex::MOV)
                 {
-                    std::cout << effectiveAddresses[rm] << " + " << disp << "], ";
+                    leftOperand = std::string(effectiveAddresses[rm]) + " + " + disp + ']';
                     if (bitW == 0)
-                    {
-                        u16 data = bytes[++byteIndex];
-                        std::cout << "byte " << data;
-                    }
+                        rightOperand = "byte " + std::to_string(bytes[++byteIndex]);
                     else
-                    {
-                        u16 data = CombineLoAndHiToWord(bytes, byteIndex);
-                        std::cout << "word " << data;
-                    }
+                        rightOperand = "word " + CombineLoAndHiToString(bytes, &byteIndex);
                 }
                 else
                 {
                     if (bitW == 1)
                     {
-                        std::cout << "word " << effectiveAddresses[rm] << " + " << disp << "], ";
+                        leftOperand = "word " + std::string(effectiveAddresses[rm]) + " + " + disp + ']';
                         if (bitS == 0)
-                            std::cout << CombineLoAndHiToWord(bytes, byteIndex);
+                            rightOperand = CombineLoAndHiToString(bytes, &byteIndex);
                         else
-                            std::cout << std::to_string(bytes[++byteIndex]);
+                            rightOperand = std::to_string(bytes[++byteIndex]);
                     }
                     else
                     {
-                        u16 data = bytes[++byteIndex];
-                        std::cout << "byte " << effectiveAddresses[rm] << " + " << disp << "], " << data;
+                        leftOperand = "byte " + std::string(effectiveAddresses[rm]) + " + " + disp + ']';
+                        rightOperand = std::to_string(bytes[++byteIndex]);
                     }
                 }
             }
         }
-        else if (((byte >> 4) << 4) == opcodeMOVImmediateToREG)
+        else if ((byte & 0b1111'0000) == 0b1011'0000) // MOV immediate to register
         {
             std::cout << "mov ";
             u8 bitW = (byte & 0b0000'1000) >> 3;
             u8 reg  = (byte & 0b0000'0111);
 
-            std::cout << registers[reg][bitW] << ", ";
+            leftOperand = registers[reg][bitW];
             if (bitW == 0)
-            {
-                std::cout << (s16)bytes[++byteIndex];
-            }
+                rightOperand = std::to_string(bytes[++byteIndex]);
             else
-            {
-                std::cout << CombineLoAndHiToWord(bytes, byteIndex);
-            }
+                rightOperand = CombineLoAndHiToString(bytes, &byteIndex);
         }
-        else if (((byte >> 2) << 2) == opcodeMOVAccumulator)
+        else if ((byte & 0b1111'1100) == 0b1010'0000) // MOV accumulator
         {
             std::cout << "mov ";
 
-            u16 data = CombineLoAndHiToWord(bytes, byteIndex);
+            const auto data = CombineLoAndHiToString(bytes, &byteIndex);
             if (bitD == 0)
             {
-                std::cout << "ax, [" << data << "]";
+                leftOperand = "ax";
+                rightOperand = '[' + data + ']';
             }
             else
             {
-                std::cout << "[" << data << "], ax";
+                leftOperand = '[' + data + ']';
+                rightOperand = "ax";
             }
         }
         else if (IsImm_Accumulator(byte))
@@ -377,13 +366,13 @@ int main()
             std::cout << operations[opIndex];
             if (bitW == 0)
             {
-                s8 data = bytes[++byteIndex];
-                std::cout << "al, " << std::to_string(data);
+                leftOperand = "al";
+                rightOperand = std::to_string(bytes[++byteIndex]);
             }
             else
             {
-                u16 data = CombineLoAndHiToWord(bytes, byteIndex);
-                std::cout << "ax, " << data;
+                leftOperand = "ax";
+                rightOperand = CombineLoAndHiToString(bytes, &byteIndex);
             }
         }
         else if (IsJump(byte) || IsLoop(byte))
@@ -409,6 +398,10 @@ int main()
             std::cout << "+0";
         }
 
+        if (leftOperand != "" && rightOperand != "")
+            std::cout << leftOperand << ", " << rightOperand;
+        else
+            std::cout << leftOperand;
         std::cout << '\n';
         byteIndex++;
     }
