@@ -44,12 +44,7 @@ std::string ByteInStr2(u16 byte)
     return result;
 }
 
-const char* GetSign8(s8 byte)
-{
-    return byte >= 0 ? " + " : " - ";
-}
-
-const char* GetSign16(s16 byte)
+const char* GetSign(s16 byte)
 {
     return byte >= 0 ? " + " : " - ";
 }
@@ -184,13 +179,13 @@ int main()
     while (byteIndex < bytes.size())
     {
         u8 byte = bytes[byteIndex];
+        u8 bitD = (byte & 2) >> 1;
+        u8 bitW = (byte & 1);
 
         if (IsReg_Mem_Reg(byte))
         {
             u8 opIndex = (byte & 0b0011'1000) >> 3;
             std::cout << operations[opIndex];
-            u8 bitD = (byte & 2) >> 1;
-            u8 bitW = (byte & 1);
 
             byte = bytes[++byteIndex];
 
@@ -224,7 +219,7 @@ int main()
                 {
                     u16 disp = bytes[++byteIndex];
                     if (bitW == 1)
-                        std::cout << effectiveAddresses[rm] << GetSign8(disp) << std::to_string(abs((s8)disp)) << ']';
+                        std::cout << effectiveAddresses[rm] << GetSign(disp) << std::to_string(abs((s8)disp)) << ']';
                     else
                         std::cout << effectiveAddresses[rm] << " + " << disp << ']';
                 }
@@ -232,7 +227,7 @@ int main()
                 {
                     u16 disp = CombineLoAndHiToWord(bytes, byteIndex);
                     if (bitW == 1)
-                        std::cout << effectiveAddresses[rm] << GetSign16(disp) << (s16)disp << ']';
+                        std::cout << effectiveAddresses[rm] << GetSign(disp) << (s16)disp << ']';
                     else
                         std::cout << effectiveAddresses[rm] << " + " << disp << ']';
                 }
@@ -244,8 +239,7 @@ int main()
         }
         else if (IsImm_Reg_Mem(byte))
         {
-            u8 bitW = (byte & 1);
-            u8 bitS = (byte & 2) >> 1; // bit s near w
+            u8 bitS = bitD;
 
             byte = bytes[++byteIndex];
             u8 mod     = (byte >> 6);
@@ -301,7 +295,7 @@ int main()
             {
                 u16 disp = bytes[++byteIndex];
                 if (bitW == 1)
-                    std::cout << effectiveAddresses[rm] << GetSign16(disp) << abs((s16)disp) << ']';
+                    std::cout << effectiveAddresses[rm] << GetSign(disp) << abs((s16)disp) << ']';
                 else
                     std::cout << effectiveAddresses[rm] << " + " << disp << ']';
             }
@@ -347,7 +341,7 @@ int main()
         {
             std::cout << "mov ";
             u8 bitW = (byte & 0b0000'1000) >> 3;
-            u8 reg = (byte & 0b0000'0111);
+            u8 reg  = (byte & 0b0000'0111);
 
             std::cout << registers[reg][bitW] << ", ";
             if (bitW == 0)
@@ -362,8 +356,6 @@ int main()
         else if (((byte >> 2) << 2) == opcodeMOVAccumulator)
         {
             std::cout << "mov ";
-            u8 bitD = (byte & 2) >> 1; // specification doesn't really say that this is bit D, but idea seems the same with the direction
-            u8 bitW = (byte & 1);
 
             u16 data = CombineLoAndHiToWord(bytes, byteIndex);
             if (bitD == 0)
@@ -383,7 +375,6 @@ int main()
                 (byte & mask) == 0b0010'1100 ? OpIndex::SUB :
                 (byte & mask) == 0b0011'1100 ? OpIndex::CMP : OpIndex::UNDEFINED;
             std::cout << operations[opIndex];
-            u8 bitW = (byte & 1);
             if (bitW == 0)
             {
                 s8 data = bytes[++byteIndex];
@@ -408,14 +399,13 @@ int main()
                 std::cout << loops[opIndex];
             }
 
-            auto disp = (s8)bytes[++byteIndex];
+            auto disp = (s8)bytes[++byteIndex] + 2;
             std::string dispStr = std::to_string(disp);
-            if (disp+2 > 0)
-                std::cout << "$+" << std::to_string(disp+2);
-            else if (disp+2 == 0)
-                std::cout << "$";
-            else
-                std::cout << "$" << std::to_string(disp+2);
+            std::cout << '$';
+            if (disp > 0)
+                std::cout << '+' << dispStr;
+            else if (disp < 0)
+                std::cout << dispStr;
             std::cout << "+0";
         }
 
