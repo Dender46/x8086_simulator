@@ -41,6 +41,13 @@ std::string ByteInStr2(u16 byte)
     return result;
 }
 
+std::string HexString(u16 byte)
+{
+    std::stringstream stream;
+    stream << std::hex << "0x" << byte;
+    return stream.str();
+}
+
 const char* GetSign(s16 byte)
 {
     return byte >= 0 ? " + " : " - ";
@@ -93,12 +100,32 @@ std::string CombineLoAndHiToString(const std::vector<u8>& bytesArr, int* byteInd
     return std::to_string(CombineLoAndHiToWord(bytesArr, byteIndex));
 }
 
-int main()
+u8 RegisterCodeToMemoryIndex(u8 reg, u8 bitW)
 {
-    //std::ifstream file("listings/0038_many_register_mov", std::ios::binary);
+    if (reg < 4 && bitW == 1) // whole register
+        return reg;
+    if (reg < 4 && bitW == 0) // lower bits of register - unimplemented
+        return reg;
+    if (reg >= 4 && bitW == 0) // higher bits of register - unimplemented
+        return reg - 4;
+    if (reg >= 4 && bitW == 1) // other registers
+        return reg;
+}
+
+int main(int argc, char* argv[])
+{
+    bool executeInstructions = false;
+    if (argc == 2 && strcmp(argv[1], "-exec") == 0)
+    {
+        executeInstructions = true;
+    }
+
+    //std::ifstream file("listings/listing_0038_many_register_mov", std::ios::binary);
     //std::ifstream file("listings/listing_0039_more_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0040_challenge_movs", std::ios::binary);
-    std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
+    //std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
+    //std::ifstream file("listings/listing_0043_immediate_movs", std::ios::binary);
+    std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -109,10 +136,25 @@ int main()
         (std::istreambuf_iterator<char>())
     );
 
-    for (const auto& byte : bytes)
-    {
-        //PrintByte(byte);
-    }
+    // ax = 0 1     al = 0 0    ah = 4 0
+    // cx = 1 1     cl = 1 0    ch = 5 0
+    // dx = 2 1     dl = 2 0    dh = 6 0
+    // bx = 3 1     bl = 3 0    bh = 7 0
+    // sp = 4 1
+    // bp = 5 1
+    // si = 6 1
+    // di = 7 1
+    u16 registersMem[8] = {
+        0b0000'0000'0000'0000, // ax
+        0b0000'0000'0000'0000, // cx
+        0b0000'0000'0000'0000, // dx
+        0b0000'0000'0000'0000, // bx
+
+        0b0000'0000'0000'0000, // sp
+        0b0000'0000'0000'0000, // bp
+        0b0000'0000'0000'0000, // si
+        0b0000'0000'0000'0000, // di
+    };
 
     constexpr const char* registers[][2] = {
         {"al", "ax"},
@@ -334,11 +376,20 @@ int main()
             u8 bitW = (byte & 0b0000'1000) >> 3;
             u8 reg  = (byte & 0b0000'0111);
 
-            leftOperand = registers[reg][bitW];
-            if (bitW == 0)
-                rightOperand = std::to_string(bytes[++byteIndex]);
-            else
-                rightOperand = CombineLoAndHiToString(bytes, &byteIndex);
+            u16 data = bitW == 0 ? bytes[++byteIndex] : CombineLoAndHiToWord(bytes, &byteIndex);
+            leftOperand  = registers[reg][bitW];
+            rightOperand = std::to_string(data);
+
+            if (executeInstructions)
+            {
+                u8 regMemIndex = RegisterCodeToMemoryIndex(reg, bitW);
+                u8 prevData = registersMem[regMemIndex];
+                registersMem[regMemIndex] = data;
+                rightOperand += "\t; " + leftOperand + ": " 
+                    + HexString(prevData)
+                    + "->"
+                    + HexString(data);
+            }
         }
         else if ((byte & 0b1111'1100) == 0b1010'0000) // MOV accumulator
         {
