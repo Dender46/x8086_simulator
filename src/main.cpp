@@ -242,6 +242,18 @@ int main(int argc, char* argv[])
             {
                 leftOperand  = registers[rm][bitW];
                 rightOperand = registers[reg][bitW];
+
+                if (executeInstructions)
+                {
+                    u8 destRegMemIndex = RegisterCodeToMemoryIndex(rm, bitW);
+                    u8 prevData = registersMem[destRegMemIndex];
+                    u8 newData = registersMem[RegisterCodeToMemoryIndex(reg, bitW)];
+                    registersMem[destRegMemIndex] = newData;
+                    rightOperand += "\t; " + leftOperand + ": " 
+                        + HexString(prevData)
+                        + "->"
+                        + HexString(newData);
+                }
             }
             else
             {
