@@ -468,5 +468,19 @@ int main(int argc, char* argv[])
         std::cout << '\n';
         byteIndex++;
     }
+
+    if (executeInstructions)
+    {
+        std::cout << "\nFinal registers:"
+            << "\n\t ax: " << HexString(registersMem[0])
+            << "\n\t bx: " << HexString(registersMem[3])
+            << "\n\t cx: " << HexString(registersMem[1])
+            << "\n\t dx: " << HexString(registersMem[2])
+            << "\n\t sp: " << HexString(registersMem[4])
+            << "\n\t bp: " << HexString(registersMem[5])
+            << "\n\t si: " << HexString(registersMem[6])
+            << "\n\t di: " << HexString(registersMem[7]);
+    }
+
     return 0;
 }
