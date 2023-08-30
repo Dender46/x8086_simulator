@@ -4,10 +4,9 @@
 #include <bitset>
 #include <string>
 
-typedef uint8_t     u8;
-typedef uint16_t    u16;
-typedef int8_t      s8;
-typedef int16_t     s16;
+#include "Defines.h"
+#include "OperationTypes.h"
+
 
 void PrintByte(u8 byte)
 {
@@ -53,46 +52,11 @@ const char* GetSign(s16 byte)
     return byte >= 0 ? " + " : " - ";
 }
 
-bool IsReg_Mem_Reg(u8 byte)
-{
-    u8 mask = 0b1111'1100;
-    return (byte & mask) == 0b1000'1000  // MOV
-        || (byte & mask) == 0b0000'0000  // ADD
-        || (byte & mask) == 0b0010'1000  // SUB
-        || (byte & mask) == 0b0011'1000; // CMP
-}
-
-bool IsImm_Reg_Mem(u8 byte)
-{
-    return ((byte >> 1) << 1) == 0b1100'0110  // MOV
-        || ((byte >> 2) << 2) == 0b1000'0000; // ADD, SUB, CMPs
-}
-
-bool IsImm_Accumulator(u8 byte)
-{
-    u8 mask = 0b1111'1110;
-    return (byte & mask) == 0b0000'0100  // ADD
-        || (byte & mask) == 0b0010'1100  // SUB
-        || (byte & mask) == 0b0011'1100; // CMP
-}
-
-bool IsJump(u8 byte)
-{
-    u8 mask = 0b1111'0000;
-    return (byte & mask) == 0b0111'0000;
-}
-
-bool IsLoop(u8 byte)
-{
-    u8 mask = 0b1111'0000;
-    return (byte & mask) == 0b1110'0000;
-}
-
 u16 CombineLoAndHiToWord(const std::vector<u8>& bytesArr, int* byteIndex)
 {
     const u16 byteLow  = bytesArr[++(*byteIndex)];
     const u16 byteHigh = bytesArr[++(*byteIndex)];
-    return (byteHigh << 8) | ((u16)byteLow);
+    return (byteHigh << 8) | byteLow;
 }
 
 std::string CombineLoAndHiToString(const std::vector<u8>& bytesArr, int* byteIndex)
@@ -123,9 +87,10 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0038_many_register_mov", std::ios::binary);
     //std::ifstream file("listings/listing_0039_more_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0040_challenge_movs", std::ios::binary);
-    //std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
+    std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
     //std::ifstream file("listings/listing_0043_immediate_movs", std::ios::binary);
-    std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
+    //std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
+    //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -136,6 +101,9 @@ int main(int argc, char* argv[])
         (std::istreambuf_iterator<char>())
     );
 
+    enum Flag { FLAG_ZERO, FLAG_SIGNED,   FLAG_COUNT };
+
+    /* register indices
     // ax = 0 1     al = 0 0    ah = 4 0
     // cx = 1 1     cl = 1 0    ch = 5 0
     // dx = 2 1     dl = 2 0    dh = 6 0
@@ -144,17 +112,9 @@ int main(int argc, char* argv[])
     // bp = 5 1
     // si = 6 1
     // di = 7 1
-    u16 registersMem[8] = {
-        0b0000'0000'0000'0000, // ax
-        0b0000'0000'0000'0000, // cx
-        0b0000'0000'0000'0000, // dx
-        0b0000'0000'0000'0000, // bx
-
-        0b0000'0000'0000'0000, // sp
-        0b0000'0000'0000'0000, // bp
-        0b0000'0000'0000'0000, // si
-        0b0000'0000'0000'0000, // di
-    };
+    */
+    u16 registersMem[8] = {};
+    bool flags[Flag::FLAG_COUNT] = {};
 
     constexpr const char* registers[][2] = {
         {"al", "ax"},
@@ -204,8 +164,6 @@ int main(int argc, char* argv[])
         "jcxz ",
     };
 
-    enum OpIndex { ADD = 0, MOV = 1, SUB = 5, CMP = 7, UNDEFINED = -1 };
-
     constexpr const char* operations[] = {
         {"add "}, // 0
         {"mov "}, // 1
@@ -228,9 +186,8 @@ int main(int argc, char* argv[])
         u8 bitD = (byte & 2) >> 1;
         u8 bitW = (byte & 1);
 
-        if (IsReg_Mem_Reg(byte))
+        if (auto opIndex = IsReg_Mem_Reg(byte); opIndex != OpIndex::UNDEFINED)
         {
-            u8 opIndex = (byte & 0b0011'1000) >> 3;
             std::cout << operations[opIndex];
 
             byte = bytes[++byteIndex];
@@ -419,13 +376,9 @@ int main(int argc, char* argv[])
                 rightOperand = "ax";
             }
         }
-        else if (IsImm_Accumulator(byte))
+        else if (auto opIndex = IsImm_Accumulator(byte); opIndex != OpIndex::UNDEFINED)
         {
             u8 mask = 0b0011'1100;
-            const auto opIndex = 
-                (byte & mask) == 0b0000'0100 ? OpIndex::ADD :
-                (byte & mask) == 0b0010'1100 ? OpIndex::SUB :
-                (byte & mask) == 0b0011'1100 ? OpIndex::CMP : OpIndex::UNDEFINED;
             std::cout << operations[opIndex];
             if (bitW == 0)
             {
@@ -471,6 +424,8 @@ int main(int argc, char* argv[])
 
     if (executeInstructions)
     {
+        // Order of registers in memory is mixed up
+        // so we manualy displace values in better order
         std::cout << "\nFinal registers:"
             << "\n\t ax: " << HexString(registersMem[0])
             << "\n\t bx: " << HexString(registersMem[3])
