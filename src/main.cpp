@@ -21,6 +21,14 @@ u16 registersMem[8] = {};
 
 enum Flag { FLAG_ZERO, FLAG_SIGNED,   FLAG_COUNT };
 bool flags[Flag::FLAG_COUNT] = {};
+std::string FlagStr(Flag flag)
+{
+    switch (flag)
+    {
+    case FLAG_ZERO:     return "Z";
+    case FLAG_SIGNED:   return "S";
+    }
+}
 
 void PrintByte(u8 byte)
 {
@@ -78,26 +86,61 @@ std::string CombineLoAndHiToString(const std::vector<u8>& bytesArr, int* byteInd
     return std::to_string(CombineLoAndHiToWord(bytesArr, byteIndex));
 }
 
+std::string OutputChangeInFlags(const bool* prevFlags)
+{
+    std::string prevFlagsStr, currFlagsStr;
+    for (int i = 0; i < Flag::FLAG_COUNT; i++)
+    {
+        if (prevFlags[i])   prevFlagsStr += FlagStr((Flag)i);
+        if (flags[i])       currFlagsStr += FlagStr((Flag)i);
+    }
+
+    if (prevFlagsStr == "" && currFlagsStr == "" || prevFlagsStr == currFlagsStr)
+        return "";
+
+    return "flags: " + prevFlagsStr + "->" + currFlagsStr;
+}
+
 std::string ExecuteOp(OpIndex opIndex, u8 outputRegMemIndex, u16 data)
 {
-    u16 prevData = registersMem[outputRegMemIndex];
+    auto prevData = registersMem[outputRegMemIndex];
+    bool prevFlags[Flag::FLAG_COUNT] = {};
+    for (int i : flags)
+        prevFlags[i] = flags[i];
+
     // Execute operation
     switch (opIndex)
     {
-        case OpIndex::MOV:
-            registersMem[outputRegMemIndex] = data;
-            break;
-        case OpIndex::ADD:
-            registersMem[outputRegMemIndex] += data;
-            break;
-        case OpIndex::SUB:
-            registersMem[outputRegMemIndex] -= data;
-            break;
-        case OpIndex::CMP:
-            break;
+    case OpIndex::MOV:
+        registersMem[outputRegMemIndex] = data;
+        break;
+    case OpIndex::ADD:
+        registersMem[outputRegMemIndex] += data;
+        break;
+    case OpIndex::SUB:
+        registersMem[outputRegMemIndex] -= data;
+        break;
+    case OpIndex::CMP:
+        break;
     }
 
-    return HexString(prevData) + " -> " + HexString(registersMem[outputRegMemIndex]);
+    // Check flags and format output
+    switch (opIndex)
+    {
+    case MOV:
+        return HexString(prevData) + " -> " + HexString(registersMem[outputRegMemIndex]);
+        break;
+    case ADD:
+    case SUB:
+        flags[Flag::FLAG_ZERO] = registersMem[outputRegMemIndex] == 0;
+        flags[Flag::FLAG_SIGNED] = (registersMem[outputRegMemIndex] & 0x8000) >> 15 == 1;
+        return HexString(prevData) + " -> " + HexString(registersMem[outputRegMemIndex]) + "\t" + OutputChangeInFlags(prevFlags);
+    case CMP:
+        flags[Flag::FLAG_SIGNED] = (registersMem[outputRegMemIndex] & 0x8000) >> 15 == 1;
+        return OutputChangeInFlags(prevFlags);
+    }
+
+    return "";
 }
 
 u8 RegisterMemoryIndex(u8 reg, u8 bitW)
