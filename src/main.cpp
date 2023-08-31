@@ -7,6 +7,20 @@
 #include "Defines.h"
 #include "OperationTypes.h"
 
+/* register indices
+    // ax = 0 1     al = 0 0    ah = 4 0
+    // cx = 1 1     cl = 1 0    ch = 5 0
+    // dx = 2 1     dl = 2 0    dh = 6 0
+    // bx = 3 1     bl = 3 0    bh = 7 0
+    // sp = 4 1
+    // bp = 5 1
+    // si = 6 1
+    // di = 7 1
+    */
+u16 registersMem[8] = {};
+
+enum Flag { FLAG_ZERO, FLAG_SIGNED,   FLAG_COUNT };
+bool flags[Flag::FLAG_COUNT] = {};
 
 void PrintByte(u8 byte)
 {
@@ -64,7 +78,16 @@ std::string CombineLoAndHiToString(const std::vector<u8>& bytesArr, int* byteInd
     return std::to_string(CombineLoAndHiToWord(bytesArr, byteIndex));
 }
 
-u8 RegisterCodeToMemoryIndex(u8 reg, u8 bitW)
+std::string Op_Move(u8 outputRegMemIndex, u16 data)
+{
+    u16 prevData = registersMem[outputRegMemIndex];
+    registersMem[outputRegMemIndex] = data;
+
+    return HexString(prevData) + "->" + HexString(data);
+}
+
+
+u8 RegisterMemoryIndex(u8 reg, u8 bitW)
 {
     if (reg < 4 && bitW == 1) // whole register
         return reg;
@@ -87,9 +110,9 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0038_many_register_mov", std::ios::binary);
     //std::ifstream file("listings/listing_0039_more_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0040_challenge_movs", std::ios::binary);
-    std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
+    //std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
     //std::ifstream file("listings/listing_0043_immediate_movs", std::ios::binary);
-    //std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
+    std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
     if (!file.is_open())
     {
@@ -100,21 +123,6 @@ int main(int argc, char* argv[])
         (std::istreambuf_iterator<char>(file)),
         (std::istreambuf_iterator<char>())
     );
-
-    enum Flag { FLAG_ZERO, FLAG_SIGNED,   FLAG_COUNT };
-
-    /* register indices
-    // ax = 0 1     al = 0 0    ah = 4 0
-    // cx = 1 1     cl = 1 0    ch = 5 0
-    // dx = 2 1     dl = 2 0    dh = 6 0
-    // bx = 3 1     bl = 3 0    bh = 7 0
-    // sp = 4 1
-    // bp = 5 1
-    // si = 6 1
-    // di = 7 1
-    */
-    u16 registersMem[8] = {};
-    bool flags[Flag::FLAG_COUNT] = {};
 
     constexpr const char* registers[][2] = {
         {"al", "ax"},
@@ -202,14 +210,8 @@ int main(int argc, char* argv[])
 
                 if (executeInstructions)
                 {
-                    u8 destRegMemIndex = RegisterCodeToMemoryIndex(rm, bitW);
-                    u8 prevData = registersMem[destRegMemIndex];
-                    u8 newData = registersMem[RegisterCodeToMemoryIndex(reg, bitW)];
-                    registersMem[destRegMemIndex] = newData;
-                    rightOperand += "\t; " + leftOperand + ": " 
-                        + HexString(prevData)
-                        + "->"
-                        + HexString(newData);
+                    rightOperand += "\t; " + leftOperand + ": " +
+                        Op_Move(RegisterMemoryIndex(rm, bitW), registersMem[RegisterMemoryIndex(reg, bitW)]);
                 }
             }
             else
@@ -351,13 +353,8 @@ int main(int argc, char* argv[])
 
             if (executeInstructions)
             {
-                u8 regMemIndex = RegisterCodeToMemoryIndex(reg, bitW);
-                u8 prevData = registersMem[regMemIndex];
-                registersMem[regMemIndex] = data;
-                rightOperand += "\t; " + leftOperand + ": " 
-                    + HexString(prevData)
-                    + "->"
-                    + HexString(data);
+                rightOperand += "\t; " + leftOperand + ": " +
+                    Op_Move(RegisterMemoryIndex(reg, bitW), data);
             }
         }
         else if ((byte & 0b1111'1100) == 0b1010'0000) // MOV accumulator
