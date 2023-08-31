@@ -78,14 +78,27 @@ std::string CombineLoAndHiToString(const std::vector<u8>& bytesArr, int* byteInd
     return std::to_string(CombineLoAndHiToWord(bytesArr, byteIndex));
 }
 
-std::string Op_Move(u8 outputRegMemIndex, u16 data)
+std::string ExecuteOp(OpIndex opIndex, u8 outputRegMemIndex, u16 data)
 {
     u16 prevData = registersMem[outputRegMemIndex];
-    registersMem[outputRegMemIndex] = data;
+    // Execute operation
+    switch (opIndex)
+    {
+        case OpIndex::MOV:
+            registersMem[outputRegMemIndex] = data;
+            break;
+        case OpIndex::ADD:
+            registersMem[outputRegMemIndex] += data;
+            break;
+        case OpIndex::SUB:
+            registersMem[outputRegMemIndex] -= data;
+            break;
+        case OpIndex::CMP:
+            break;
+    }
 
-    return HexString(prevData) + "->" + HexString(data);
+    return HexString(prevData) + " -> " + HexString(registersMem[outputRegMemIndex]);
 }
-
 
 u8 RegisterMemoryIndex(u8 reg, u8 bitW)
 {
@@ -112,8 +125,8 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0040_challenge_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
     //std::ifstream file("listings/listing_0043_immediate_movs", std::ios::binary);
-    std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
-    //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
+    //std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
+    std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -211,7 +224,7 @@ int main(int argc, char* argv[])
                 if (executeInstructions)
                 {
                     rightOperand += "\t; " + leftOperand + ": " +
-                        Op_Move(RegisterMemoryIndex(rm, bitW), registersMem[RegisterMemoryIndex(reg, bitW)]);
+                        ExecuteOp(opIndex, RegisterMemoryIndex(rm, bitW), registersMem[RegisterMemoryIndex(reg, bitW)]);
                 }
             }
             else
@@ -265,8 +278,15 @@ int main(int argc, char* argv[])
 
             if (mod == 3) // register mode
             {
+                u16 data = bitS == 0 && bitW == 1 ? CombineLoAndHiToWord(bytes, &byteIndex) : bytes[++byteIndex];
                 leftOperand = registers[rm][bitW];
-                rightOperand = bitS == 0 && bitW == 1 ? CombineLoAndHiToString(bytes, &byteIndex) : std::to_string(bytes[++byteIndex]);
+                rightOperand = std::to_string(data);
+
+                if (executeInstructions)
+                {
+                    rightOperand += "\t; " + leftOperand + ": " +
+                        ExecuteOp((OpIndex)opIndex, RegisterMemoryIndex(rm, bitW), data);
+                }
             }
             else if (mod == 0) // memory mode, no displacement follows
             {
@@ -354,7 +374,7 @@ int main(int argc, char* argv[])
             if (executeInstructions)
             {
                 rightOperand += "\t; " + leftOperand + ": " +
-                    Op_Move(RegisterMemoryIndex(reg, bitW), data);
+                    ExecuteOp(OpIndex::MOV, RegisterMemoryIndex(reg, bitW), data);
             }
         }
         else if ((byte & 0b1111'1100) == 0b1010'0000) // MOV accumulator
