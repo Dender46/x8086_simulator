@@ -487,14 +487,21 @@ int main(int argc, char* argv[])
         // Order of registers in memory is mixed up
         // so we manualy displace values in better order
         std::cout << "\nFinal registers:"
-            << "\n\t ax: " << HexString(registersMem[0])
-            << "\n\t bx: " << HexString(registersMem[3])
-            << "\n\t cx: " << HexString(registersMem[1])
-            << "\n\t dx: " << HexString(registersMem[2])
-            << "\n\t sp: " << HexString(registersMem[4])
-            << "\n\t bp: " << HexString(registersMem[5])
-            << "\n\t si: " << HexString(registersMem[6])
-            << "\n\t di: " << HexString(registersMem[7]);
+            << "\n\tax: " << HexString(registersMem[0])
+            << "\n\tbx: " << HexString(registersMem[3])
+            << "\n\tcx: " << HexString(registersMem[1])
+            << "\n\tdx: " << HexString(registersMem[2])
+            << "\n\tsp: " << HexString(registersMem[4])
+            << "\n\tbp: " << HexString(registersMem[5])
+            << "\n\tsi: " << HexString(registersMem[6])
+            << "\n\tdi: " << HexString(registersMem[7]);
+
+        std::cout << "\nFinal flags:\n\t";
+        for (int i = 0; i < Flag::FLAG_COUNT; i++)
+        {
+            if (flags[i])
+                std::cout << FlagStr((Flag)i);
+        }
     }
 
     return 0;
