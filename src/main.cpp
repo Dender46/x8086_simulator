@@ -5,74 +5,10 @@
 #include <string>
 
 #include "Defines.h"
+#include "CpuMemory.h"
+#include "CpuNames.h"
+#include "Helpers.h"
 #include "OperationTypes.h"
-
-/* register indices
-    // ax = 0 1     al = 0 0    ah = 4 0
-    // cx = 1 1     cl = 1 0    ch = 5 0
-    // dx = 2 1     dl = 2 0    dh = 6 0
-    // bx = 3 1     bl = 3 0    bh = 7 0
-    // sp = 4 1
-    // bp = 5 1
-    // si = 6 1
-    // di = 7 1
-    */
-u16 registersMem[8] = {};
-
-enum Flag { FLAG_ZERO, FLAG_SIGNED,   FLAG_COUNT };
-bool flags[Flag::FLAG_COUNT] = {};
-std::string FlagStr(Flag flag)
-{
-    switch (flag)
-    {
-    case FLAG_ZERO:     return "Z";
-    case FLAG_SIGNED:   return "S";
-    }
-}
-
-void PrintByte(u8 byte)
-{
-    for (int k = 7; k >= 0; k--)
-    {
-        int bit = (byte & (1 << k)) >> k;
-        std::cout << bit;
-    }
-    std::cout << " ";
-}
-
-std::string ByteInStr(u8 byte)
-{
-    std::string result;
-    for (int k = 7; k >= 0; k--)
-    {
-        int bit = (byte & (1 << k)) >> k;
-        result += std::to_string(bit);
-    }
-    return result;
-}
-
-std::string ByteInStr2(u16 byte)
-{
-    std::string result;
-    for (int k = 15; k >= 0; k--)
-    {
-        int bit = (byte & (1 << k)) >> k;
-        result += std::to_string(bit);
-    }
-    return result;
-}
-
-std::string HexString(u16 byte)
-{
-    std::stringstream stream;
-    stream << std::hex << "0x" << byte;
-    return stream.str();
-}
-
-const char* GetSign(s16 byte)
-{
-    return byte >= 0 ? " + " : " - ";
-}
 
 u16 CombineLoAndHiToWord(const std::vector<u8>& bytesArr, int* byteIndex)
 {
@@ -180,65 +116,6 @@ int main(int argc, char* argv[])
         (std::istreambuf_iterator<char>(file)),
         (std::istreambuf_iterator<char>())
     );
-
-    constexpr const char* registers[][2] = {
-        {"al", "ax"},
-        {"cl", "cx"},
-        {"dl", "dx"},
-        {"bl", "bx"},
-        {"ah", "sp"},
-        {"ch", "bp"},
-        {"dh", "si"},
-        {"bh", "di"},
-    };
-
-    constexpr const char* effectiveAddresses[] = {
-        {"[bx + si"},
-        {"[bx + di"},
-        {"[bp + si"},
-        {"[bp + di"},
-        {"[si"},
-        {"[di"},
-        {"[bp"},
-        {"[bx"},
-    };
-
-    constexpr const char* jumps[] = {
-        "jo ",
-        "jno ",
-        "jb ",  //"jnae ",
-        "jnb ", //"jae ",
-        "je ",  //"jz ",
-        "jne ", //"jnz ",
-        "jbe ", //"jna ",
-        "ja ",  //"jnbe ",
-        "js ",
-        "jns ",
-        "jp ",  //"jpe ",
-        "jnp ", //"jpo ",
-        "jl ",  //"jnge ",
-        "jnl ", //"jge ",
-        "jle ", //"jng ",
-        "jnle ",//"jg ",
-    };
-
-    constexpr const char* loops[] = {
-        "loopnz ",  //"loopne ",
-        "loopz ",   //"loope ",
-        "loop ",
-        "jcxz ",
-    };
-
-    constexpr const char* operations[] = {
-        {"add "}, // 0
-        {"mov "}, // 1
-        {"___ "}, // 2
-        {"___ "}, // 3
-        {"___ "}, // 4
-        {"sub "}, // 5
-        {"___ "}, // 6
-        {"cmp "}, // 7
-    };
 
     std::cout << "bits 16\n";
 

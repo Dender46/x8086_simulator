@@ -26,5 +26,14 @@
     <ClInclude Include="src\OperationTypes.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Helpers.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CpuMemory.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\CpuNames.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
