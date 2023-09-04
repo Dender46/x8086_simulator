@@ -147,9 +147,9 @@ u8 RegisterMemoryIndex(u8 reg, u8 bitW)
 {
     if (reg < 4 && bitW == 1) // whole register
         return reg;
-    if (reg < 4 && bitW == 0) // lower bits of register - unimplemented
+    if (reg < 4 && bitW == 0) // TODO: lower bits of register
         return reg;
-    if (reg >= 4 && bitW == 0) // higher bits of register - unimplemented
+    if (reg >= 4 && bitW == 0) // TODO: higher bits of register
         return reg - 4;
     if (reg >= 4 && bitW == 1) // other registers
         return reg;
@@ -169,7 +169,8 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
     //std::ifstream file("listings/listing_0043_immediate_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
-    std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
+    //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
+    std::ifstream file("listings/listing_0048_ip_register", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -484,17 +485,24 @@ int main(int argc, char* argv[])
 
     if (executeInstructions)
     {
-        // Order of registers in memory is mixed up
-        // so we manualy displace values in better order
-        std::cout << "\nFinal registers:"
-            << "\n\tax: " << HexString(registersMem[0])
-            << "\n\tbx: " << HexString(registersMem[3])
-            << "\n\tcx: " << HexString(registersMem[1])
-            << "\n\tdx: " << HexString(registersMem[2])
-            << "\n\tsp: " << HexString(registersMem[4])
-            << "\n\tbp: " << HexString(registersMem[5])
-            << "\n\tsi: " << HexString(registersMem[6])
-            << "\n\tdi: " << HexString(registersMem[7]);
+        const auto printRegisterValue = [&](u8 regIndex) {
+            if (registersMem[regIndex] == 0)
+            {
+                return;
+            }
+            auto regName = registers[regIndex][1]; // TODO: only considering full 16 bit registers
+            std::cout << "\n\t" << regName
+                << ": " << HexString(registersMem[regIndex]) 
+                << " (" << registersMem[regIndex] << ")";
+        };
+
+        // Order of registers in memory is mixed up just like in 8086
+        // so we manualy reorder values for better order
+        std::cout << "\nFinal registers:";
+        for (auto i : {0, 3, 1, 2, 4, 5, 6, 7})
+        {
+            printRegisterValue(i);
+        }
 
         std::cout << "\nFinal flags:\n\t";
         for (int i = 0; i < Flag::FLAG_COUNT; i++)
