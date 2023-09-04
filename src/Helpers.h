@@ -15,7 +15,9 @@ const char* FlagStr(Flag flag)
     {
     case FLAG_ZERO:     return "Z";
     case FLAG_SIGNED:   return "S";
+    case FLAG_COUNT:    assert(false);
     }
+    return "";
 }
 
 const char* GetSign(s16 byte)

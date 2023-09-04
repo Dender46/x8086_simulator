@@ -89,6 +89,9 @@ u8 RegisterMemoryIndex(u8 reg, u8 bitW)
         return reg - 4;
     if (reg >= 4 && bitW == 1) // other registers
         return reg;
+    
+    assert(false);
+    return u8_max;
 }
 
 int main(int argc, char* argv[])
