@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
 
         if (auto opIndex = IsReg_Mem_Reg(byte); opIndex != OpIndex::UNDEFINED)
         {
-            std::cout << operations[opIndex];
+            std::cout << operationNames[opIndex];
 
             byte = bytes[++byteIndex];
 
@@ -142,8 +142,8 @@ int main(int argc, char* argv[])
             u8 rm =  (byte & 0b00'000'111);
             if (mod == 3) // register mode
             {
-                leftOperand  = registers[rm][bitW];
-                rightOperand = registers[reg][bitW];
+                leftOperand  = registerNames[rm][bitW];
+                rightOperand = registerNames[reg][bitW];
 
                 if (executeInstructions)
                 {
@@ -153,8 +153,8 @@ int main(int argc, char* argv[])
             }
             else
             {
-                leftOperand  = registers[reg][bitW];
-                rightOperand = effectiveAddresses[rm];
+                leftOperand  = registerNames[reg][bitW];
+                rightOperand = effectiveAddressesStr[rm];
 
                 if (mod == 0) // memory mode, no displacement follows
                 {
@@ -198,12 +198,12 @@ int main(int argc, char* argv[])
             u8 opIndex = (byte & 0b00'111'000) >> 3;
             u8 rm      = (byte & 0b00'000'111);
 
-            std::cout << operations[opIndex];
+            std::cout << operationNames[opIndex];
 
             if (mod == 3) // register mode
             {
                 u16 data = bitS == 0 && bitW == 1 ? CombineLoAndHiToWord(bytes, &byteIndex) : bytes[++byteIndex];
-                leftOperand = registers[rm][bitW];
+                leftOperand = registerNames[rm][bitW];
                 rightOperand = std::to_string(data);
 
                 if (executeInstructions)
@@ -216,7 +216,7 @@ int main(int argc, char* argv[])
             {
                 if (opIndex == OpIndex::MOV)
                 {
-                    leftOperand = effectiveAddresses[rm] + ']';
+                    leftOperand = effectiveAddressesStr[rm] + ']';
                     if (bitW == 0)
                         rightOperand = "byte " + bytes[++byteIndex];
                     else
@@ -230,7 +230,7 @@ int main(int argc, char* argv[])
                         if (rm == 0b0110)
                             leftOperand = "word [" + CombineLoAndHiToString(bytes, &byteIndex) + ']';
                         else
-                            leftOperand = "word " + std::string(effectiveAddresses[rm]) + ']';
+                            leftOperand = "word " + std::string(effectiveAddressesStr[rm]) + ']';
 
                         if (bitS == 0)
                             rightOperand = CombineLoAndHiToString(bytes, &byteIndex);
@@ -239,14 +239,14 @@ int main(int argc, char* argv[])
                     }
                     else
                     {
-                        leftOperand = "byte " + std::string(effectiveAddresses[rm]) + ']';
+                        leftOperand = "byte " + std::string(effectiveAddressesStr[rm]) + ']';
                         rightOperand = std::to_string(bytes[++byteIndex]);
                     }
                 }
             }
             else if (mod == 1) // memory mode, 8-bit displacement follows
             {
-                leftOperand = effectiveAddresses[rm];
+                leftOperand = effectiveAddressesStr[rm];
                 u16 disp = bytes[++byteIndex];
                 if (bitW == 1)
                     leftOperand += GetSign(disp) + std::to_string(abs((s16)disp)) + ']';
@@ -257,11 +257,11 @@ int main(int argc, char* argv[])
             {
                 const auto disp = CombineLoAndHiToString(bytes, &byteIndex);
                 //if (bitW == 1)
-                //    std::cout << effectiveAddresses[rm] << " - " << std::numeric_limits<u16>::max() - disp + 1 << ']';
+                //    std::cout << effectiveAddressesStr[rm] << " - " << std::numeric_limits<u16>::max() - disp + 1 << ']';
                 //else
                 if (opIndex == OpIndex::MOV)
                 {
-                    leftOperand = std::string(effectiveAddresses[rm]) + " + " + disp + ']';
+                    leftOperand = std::string(effectiveAddressesStr[rm]) + " + " + disp + ']';
                     if (bitW == 0)
                         rightOperand = "byte " + std::to_string(bytes[++byteIndex]);
                     else
@@ -271,7 +271,7 @@ int main(int argc, char* argv[])
                 {
                     if (bitW == 1)
                     {
-                        leftOperand = "word " + std::string(effectiveAddresses[rm]) + " + " + disp + ']';
+                        leftOperand = "word " + std::string(effectiveAddressesStr[rm]) + " + " + disp + ']';
                         if (bitS == 0)
                             rightOperand = CombineLoAndHiToString(bytes, &byteIndex);
                         else
@@ -279,7 +279,7 @@ int main(int argc, char* argv[])
                     }
                     else
                     {
-                        leftOperand = "byte " + std::string(effectiveAddresses[rm]) + " + " + disp + ']';
+                        leftOperand = "byte " + std::string(effectiveAddressesStr[rm]) + " + " + disp + ']';
                         rightOperand = std::to_string(bytes[++byteIndex]);
                     }
                 }
@@ -292,7 +292,7 @@ int main(int argc, char* argv[])
             u8 reg  = (byte & 0b0000'0111);
 
             u16 data = bitW == 0 ? bytes[++byteIndex] : CombineLoAndHiToWord(bytes, &byteIndex);
-            leftOperand  = registers[reg][bitW];
+            leftOperand  = registerNames[reg][bitW];
             rightOperand = std::to_string(data);
 
             if (executeInstructions)
@@ -320,7 +320,7 @@ int main(int argc, char* argv[])
         else if (auto opIndex = IsImm_Accumulator(byte); opIndex != OpIndex::UNDEFINED)
         {
             u8 mask = 0b0011'1100;
-            std::cout << operations[opIndex];
+            std::cout << operationNames[opIndex];
             if (bitW == 0)
             {
                 leftOperand = "al";
@@ -337,12 +337,12 @@ int main(int argc, char* argv[])
             if (IsJump(byte))
             {
                 u8 opIndex = byte & 0b0000'1111;
-                std::cout << jumps[opIndex];
+                std::cout << jumpNames[opIndex];
             }
             else
             {
                 u8 opIndex = byte & 0b0000'0011;
-                std::cout << loops[opIndex];
+                std::cout << loopNames[opIndex];
             }
 
             auto disp = (s8)bytes[++byteIndex] + 2;
@@ -370,7 +370,7 @@ int main(int argc, char* argv[])
             {
                 return;
             }
-            auto regName = registers[regIndex][1]; // TODO: only considering full 16 bit registers
+            auto regName = registerNames[regIndex][1]; // TODO: only considering full 16 bit registers
             std::cout << "\n\t" << regName
                 << ": " << HexString(registersMem[regIndex]) 
                 << " (" << registersMem[regIndex] << ")";

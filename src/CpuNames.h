@@ -1,6 +1,6 @@
 #pragma once
 
-constexpr const char* registers[][2] = {
+constexpr const char* registerNames[][2] = {
     {"al", "ax"},
     {"cl", "cx"},
     {"dl", "dx"},
@@ -11,7 +11,7 @@ constexpr const char* registers[][2] = {
     {"bh", "di"},
 };
 
-constexpr const char* effectiveAddresses[] = {
+constexpr const char* effectiveAddressesStr[] = {
     {"[bx + si"},
     {"[bx + di"},
     {"[bp + si"},
@@ -22,7 +22,7 @@ constexpr const char* effectiveAddresses[] = {
     {"[bx"},
 };
 
-constexpr const char* jumps[] = {
+constexpr const char* jumpNames[] = {
     "jo ",
     "jno ",
     "jb ",  //"jnae ",
@@ -41,14 +41,14 @@ constexpr const char* jumps[] = {
     "jnle ",//"jg ",
 };
 
-constexpr const char* loops[] = {
+constexpr const char* loopNames[] = {
     "loopnz ",  //"loopne ",
     "loopz ",   //"loope ",
     "loop ",
     "jcxz ",
 };
 
-constexpr const char* operations[] = {
+constexpr const char* operationNames[] = {
     {"add "}, // 0
     {"mov "}, // 1
     {"___ "}, // 2
