@@ -122,6 +122,7 @@ int main(int argc, char* argv[])
 
     std::cout << "bits 16\n";
 
+    int prevByteIndex = 0;
     int byteIndex = 0;
     while (byteIndex < bytes.size())
     {
@@ -361,6 +362,7 @@ int main(int argc, char* argv[])
             std::cout << leftOperand;
         std::cout << '\n';
         byteIndex++;
+        prevByteIndex = byteIndex;
     }
 
     if (executeInstructions)
@@ -383,6 +385,9 @@ int main(int argc, char* argv[])
         {
             printRegisterValue(i);
         }
+        // ip register can be in the registersMem, but it it's considered as a separate "hidden" regitser
+        // so we print it out separately
+        std::cout << "\n\tip: " << HexString(byteIndex) << " (" << byteIndex << ")";
 
         std::cout << "\nFinal flags:\n\t";
         for (int i = 0; i < Flag::FLAG_COUNT; i++)
