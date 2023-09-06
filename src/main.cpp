@@ -109,7 +109,8 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0043_immediate_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
-    std::ifstream file("listings/listing_0048_ip_register", std::ios::binary);
+    //std::ifstream file("listings/listing_0048_ip_register", std::ios::binary);
+    std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -337,31 +338,45 @@ int main(int argc, char* argv[])
         {
             if (IsJump(byte))
             {
-                u8 opIndex = byte & 0b0000'1111;
+                const u8 opIndex = byte & 0b0000'1111;
                 std::cout << jumpNames[opIndex];
             }
             else
             {
-                u8 opIndex = byte & 0b0000'0011;
+                const u8 opIndex = byte & 0b0000'0011;
                 std::cout << loopNames[opIndex];
             }
 
-            auto disp = (s8)bytes[++byteIndex] + 2;
-            std::string dispStr = std::to_string(disp);
+            const auto disp = (s8)bytes[++byteIndex] + 2;
+            const auto dispStr = std::to_string(disp);
             std::cout << '$';
             if (disp > 0)
                 std::cout << '+' << dispStr;
             else if (disp < 0)
                 std::cout << dispStr;
             std::cout << "+0";
+            
+            if (executeInstructions)
+            {
+                if (flags[Flag::FLAG_ZERO] == 0)
+                {
+                    byteIndex += disp - 2; // disp is negative
+                }
+            }
         }
+
+        byteIndex++;
 
         if (leftOperand != "" && rightOperand != "")
             std::cout << leftOperand << ", " << rightOperand;
         else
             std::cout << leftOperand;
-        std::cout << '\n';
-        byteIndex++;
+        
+        if (executeInstructions)
+        {
+            std::cout << " ip: " << HexString(prevByteIndex) << " -> " << HexString(byteIndex) << "\n";
+        }
+
         prevByteIndex = byteIndex;
     }
 
