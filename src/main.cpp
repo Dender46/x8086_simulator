@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
                     if (rm == 0b0110)
                     {
                         u16 disp = bitW == 0 ? bytes[++byteIndex] : CombineLoAndHiToWord(bytes, &byteIndex);
-                        rightOperand = '[' + disp;
+                        rightOperand = '[' + std::to_string(disp);
                     }
                 }
                 else if (mod == 1) // memory mode, 8-bit displacement follows
@@ -201,7 +201,7 @@ int main(int argc, char* argv[])
             u8 opIndex = (adjByte & 0b00'111'000) >> 3;
             u8 rm      = (adjByte & 0b00'000'111);
 
-            instructionStr = operationNames[opIndex]; // can be overwritten if doesn't fir the scehe
+            instructionStr = operationNames[opIndex]; // can be overwritten if doesn't fir the scheme
 
             if (mod == 3) // register mode
             {
@@ -217,7 +217,7 @@ int main(int argc, char* argv[])
             }
             else if (mod == 0) // memory mode, no displacement follows
             {
-                if (((instructionByte >> 1) << 1) == 0b1100'0110) // specific MOV instruction
+                if ((instructionByte & 0b1111'1110) == 0b1100'0110) // specific MOV instruction
                 {
                     instructionStr = operationNames[OpIndex::MOV];
                     // SPECIAL CASE
@@ -255,12 +255,20 @@ int main(int argc, char* argv[])
             }
             else if (mod == 1) // memory mode, 8-bit displacement follows
             {
-                leftOperand = effectiveAddressesStr[rm];
+                if ((instructionByte & 0b1111'1110) == 0b1100'0110) // specific MOV instruction
+                    instructionStr = operationNames[OpIndex::MOV];
+
                 u16 disp = bytes[++byteIndex];
                 if (bitW == 1)
-                    leftOperand += GetSign(disp) + std::to_string(abs((s16)disp)) + ']';
+                {
+                    leftOperand = "word " + (std::string)effectiveAddressesStr[rm] + GetSign(disp) + std::to_string(abs((s16)disp)) + ']'; // TODO: is this correct?..
+                    rightOperand = CombineLoAndHiToString(bytes, &byteIndex);
+                }
                 else
+                {
                     leftOperand += " + " + disp + ']';
+                    rightOperand = bytes[++byteIndex];
+                }
             }
             else if (mod == 2) // memory mode, 16-bit displacement follows
             {

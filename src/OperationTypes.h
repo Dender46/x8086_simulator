@@ -14,8 +14,10 @@ OpIndex IsReg_Mem_Reg(u8 byte)
 
 bool IsImm_Reg_Mem(u8 byte)
 {
-    return ((byte >> 1) << 1) == 0b1100'0110  // MOV
-        || ((byte >> 2) << 2) == 0b1000'0000; // ADD, SUB, CMPs
+    u8 movMask    = 0b1111'1110;
+    u8 othersMask = 0b1111'1100;
+    return (byte & movMask)    == 0b1100'0110
+        || (byte & othersMask) == 0b1000'0000;
 }
 
 OpIndex IsImm_Accumulator(u8 byte)
