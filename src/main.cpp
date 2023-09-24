@@ -18,11 +18,6 @@ u16 CombineLoAndHiToWord(const std::vector<u8>& bytesArr, int* byteIndex)
     return (byteHigh << 8) | byteLow;
 }
 
-std::string CombineLoAndHiToString(const std::vector<u8>& bytesArr, int* byteIndex)
-{
-    return std::to_string(CombineLoAndHiToWord(bytesArr, byteIndex));
-}
-
 std::string OutputChangeInFlags(const bool* prevFlags)
 {
     std::string prevFlagsStr, currFlagsStr;
@@ -129,18 +124,6 @@ constexpr RegisterIndex registersMap[][2] = {
     {RegisterIndex::bh, RegisterIndex::di},
 };
 
-constexpr const char* registerNamesNEW[] = {
-    "",
-    "al", "ah", "ax",
-    "bl", "bh", "bx",
-    "cl", "ch", "cx",
-    "dl", "dh", "dx",
-    "sp",
-    "bp",
-    "si",
-    "di",
-};
-
 struct ImmediateValue
 {
     s16 value;
@@ -151,7 +134,7 @@ struct JumpDisplacement
     s16 value;
 };
 
-struct MemoryAccess
+struct MemoryExpr
 {
     enum class ExplicitWide { None, Byte, Word };
 
@@ -163,9 +146,9 @@ struct MemoryAccess
     {
         switch (explicitWide)
         {
-        case MemoryAccess::ExplicitWide::None:  return "";      break;
-        case MemoryAccess::ExplicitWide::Byte:  return "byte "; break;
-        case MemoryAccess::ExplicitWide::Word:  return "word "; break;
+        case MemoryExpr::ExplicitWide::None:  return "";      break;
+        case MemoryExpr::ExplicitWide::Byte:  return "byte "; break;
+        case MemoryExpr::ExplicitWide::Word:  return "word "; break;
         default:
             return "";
             break;
@@ -199,7 +182,7 @@ struct Operand
     OperandType type;
     union {
         RegisterIndex reg;
-        MemoryAccess mem;
+        MemoryExpr mem;
         ImmediateValue immVal;
         JumpDisplacement jump;
     };
@@ -211,7 +194,7 @@ struct Operand
         case OperandType::None:
             break;
         case OperandType::Register:
-            std::cout << registerNamesNEW[reg];
+            std::cout << registerNames[reg];
             break;
         case OperandType::Immediate:
             std::cout << std::to_string(immVal.value);
@@ -219,8 +202,8 @@ struct Operand
         case OperandType::Memory:
             std::cout << mem.GetExplicitWide();
             std::cout << '[';
-            if (mem.registers[0] != RegisterIndex::None) std::cout << registerNamesNEW[mem.registers[0]];
-            if (mem.registers[1] != RegisterIndex::None) std::cout << " + " << registerNamesNEW[mem.registers[1]];
+            if (mem.registers[0] != RegisterIndex::None) std::cout << registerNames[mem.registers[0]];
+            if (mem.registers[1] != RegisterIndex::None) std::cout << " + " << registerNames[mem.registers[1]];
             if (mem.disp != 0)                           std::cout << " + " << std::to_string(mem.disp);
             std::cout << ']';
             break;
@@ -361,7 +344,7 @@ int main(int argc, char* argv[])
             }
             else
             {
-                instructionStr = operationNames[opIndex]; // can be overwritten if doesn't fir the scheme
+                instructionStr = operationNames[opIndex];
             }
 
             bool dataIsWord = opIndex == OpIndex::MOV  ?  bitW == 1  :  bitS == 0 && bitW == 1;
@@ -377,37 +360,29 @@ int main(int argc, char* argv[])
                     //    ExecuteOp((OpIndex)opIndex, RegisterMemoryIndex(rm, bitW), right.immVal.value);
                 }
             }
-            else if (mod == 0) // memory mode, no displacement follows
+            else
             {
-                // SPECIAL CASE
-                if (rm == 0b0110)
+                left.type = OperandType::Memory;
+                left.mem.SetRegistersOfExpression(rm, mod);
+                left.mem.explicitWide = bitW == 1 ? MemoryExpr::ExplicitWide::Word : MemoryExpr::ExplicitWide::Byte;
+
+                if (mod == 0) // memory mode, no displacement follows
                 {
-                    left.type = OperandType::DirectAddress;
+                    // SPECIAL CASE
+                    if (rm == 0b0110)
+                    {
+                        left.type = OperandType::DirectAddress;
+                        left.mem.disp = CombineLoAndHiToWord(bytes, &byteIndex);
+                    }
+                }
+                else if (mod == 1) // memory mode, 8-bit displacement follows
+                {
+                    left.mem.disp = bytes[++byteIndex];
+                }
+                else if (mod == 2) // memory mode, 16-bit displacement follows
+                {
                     left.mem.disp = CombineLoAndHiToWord(bytes, &byteIndex);
                 }
-                else
-                {
-                    left.type = OperandType::Memory;
-                    left.mem.SetRegistersOfExpression(rm, mod);
-                }
-
-                left.mem.explicitWide = bitW == 1 ? MemoryAccess::ExplicitWide::Word : MemoryAccess::ExplicitWide::Byte;
-            }
-            else if (mod == 1) // memory mode, 8-bit displacement follows
-            {
-                left.type = OperandType::Memory;
-                left.mem.SetRegistersOfExpression(rm, mod);
-                left.mem.disp = bytes[++byteIndex];
-
-                left.mem.explicitWide = bitW == 1 ? MemoryAccess::ExplicitWide::Word : MemoryAccess::ExplicitWide::Byte;
-            }
-            else if (mod == 2) // memory mode, 16-bit displacement follows
-            {
-                left.type = OperandType::Memory;
-                left.mem.SetRegistersOfExpression(rm, mod);
-                left.mem.disp = CombineLoAndHiToWord(bytes, &byteIndex);
-
-                left.mem.explicitWide = bitW == 1 ? MemoryAccess::ExplicitWide::Word : MemoryAccess::ExplicitWide::Byte;
             }
 
             right.type = OperandType::Immediate;
@@ -497,14 +472,14 @@ int main(int argc, char* argv[])
     if (executeInstructions)
     {
         const auto printRegisterValue = [&](u8 regIndex) {
-            if (registersMem[regIndex] == 0)
-            {
-                return;
-            }
-            auto regName = registerNames[regIndex][1]; // TODO: only considering full 16 bit registers
-            std::cout << "\n\t" << regName
-                << ": " << HexString(registersMem[regIndex]) 
-                << " (" << registersMem[regIndex] << ")";
+            //if (registersMem[regIndex] == 0)
+            //{
+            //    return;
+            //}
+            //auto regName = registerNames[regIndex][1]; // TODO: only considering full 16 bit registers
+            //std::cout << "\n\t" << regName
+            //    << ": " << HexString(registersMem[regIndex]) 
+            //    << " (" << registersMem[regIndex] << ")";
         };
 
         // Order of registers in memory is mixed up just like in 8086

@@ -1,14 +1,15 @@
 #pragma once
 
-constexpr const char* registerNames[][2] = {
-    {"al", "ax"},
-    {"cl", "cx"},
-    {"dl", "dx"},
-    {"bl", "bx"},
-    {"ah", "sp"},
-    {"ch", "bp"},
-    {"dh", "si"},
-    {"bh", "di"},
+constexpr const char* registerNames[] = {
+    "",
+    "al", "ah", "ax",
+    "bl", "bh", "bx",
+    "cl", "ch", "cx",
+    "dl", "dh", "dx",
+    "sp",
+    "bp",
+    "si",
+    "di",
 };
 
 constexpr const char* effectiveAddressesStr[] = {
