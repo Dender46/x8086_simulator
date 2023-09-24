@@ -20,9 +20,9 @@ struct MemoryExpr
 {
     enum class ExplicitWide { None, Byte, Word };
 
-    RegisterIndex registers[2]; // second register might not be present
+    RegisterIndex registers[2]{}; // second register might not be present
     s16 disp = 0; // might be optional, or required for direct access mode
-    ExplicitWide explicitWide; // used for immediate operation
+    ExplicitWide explicitWide = ExplicitWide::None; // used for immediate operation
 
     const char* GetExplicitWide() const
     {
@@ -71,7 +71,7 @@ struct Operand
         JumpDisplacement,
     };
 
-    Type type;
+    Type type = Type::None;
     union {
         RegisterIndex reg;
         MemoryExpr mem;

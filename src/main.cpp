@@ -11,6 +11,7 @@
 #include "Helpers.h"
 #include "OperationTypes.h"
 #include "DecoderOperands.h"
+#include <unordered_map>
 
 u16 CombineLoAndHiToWord(const std::vector<u8>& bytesArr, int* byteIndex)
 {
@@ -105,6 +106,38 @@ std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
     return "";
 }
 
+struct Operation
+{
+    enum class Type {Operation, Jump, Loop};
+        
+    Type type = Type::Operation;
+    int size = 0;
+    union {
+        OpIndex opIndex;
+        OpJump opJumpIndex;
+        OpLoop opLoopIndex;
+    };
+    Operand operands[2]{};
+
+    void PrintOp() const
+    {
+        switch (type)
+        {
+        case Operation::Type::Operation:
+            std::cout << operationNames[opIndex] << " ";
+            break;
+        case Operation::Type::Jump:
+            std::cout << jumpNames[opJumpIndex] << " ";
+            break;
+        case Operation::Type::Loop:
+            std::cout << loopNames[opLoopIndex] << " ";
+            break;
+        default:
+            break;
+        }
+    }
+};
+
 int main(int argc, char* argv[])
 {
     bool executeInstructions = false;
@@ -119,9 +152,9 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
     //std::ifstream file("listings/listing_0043_immediate_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
-    std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
+    //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
     //std::ifstream file("listings/listing_0048_ip_register", std::ios::binary);
-    //std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
+    std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
     //std::ifstream file("listings/listing_0051_memory_mov", std::ios::binary);
     if (!file.is_open())
     {
@@ -135,43 +168,12 @@ int main(int argc, char* argv[])
 
     std::cout << "bits 16\n";
 
-    struct Operation
-    {
-        enum class Type {Operation, Jump, Loop};
-        
-        Type type;
-        union {
-            OpIndex opIndex;
-            OpJump opJumpIndex;
-            OpLoop opLoopIndex;
-        };
-        Operand operands[2];
+    std::unordered_map<int, Operation> operations;
 
-        void PrintOp() const
-        {
-            switch (type)
-            {
-            case Operation::Type::Operation:
-                std::cout << operationNames[opIndex] << " ";
-                break;
-            case Operation::Type::Jump:
-                std::cout << jumpNames[opJumpIndex] << " ";
-                break;
-            case Operation::Type::Loop:
-                std::cout << loopNames[opLoopIndex] << " ";
-                break;
-            default:
-                break;
-            }
-        }
-    };
-
-    std::vector<Operation> operations;
-
-    int prevByteIndex = 0;
-    int byteIndex = 0;
+    int byteIndex = 0, opBeginByte = 0;
     while (byteIndex < bytes.size())
     {
+        opBeginByte = byteIndex;
         Operation operation{};
         Operand left{}, right{};
 
@@ -326,19 +328,17 @@ int main(int argc, char* argv[])
 
         operation.operands[0] = std::move(left);
         operation.operands[1] = std::move(right);
-        operations.emplace_back(std::move(operation));
+        operation.size = byteIndex - opBeginByte;
+        operations[opBeginByte] = operation;
 
-        prevByteIndex = byteIndex++;
-        if (executeInstructions)
-        {
-            //std::cout << " ip: " << HexString(prevByteIndex) << " -> " << HexString(byteIndex) << "\n";
-        }
+        byteIndex++;
     }
 
-    for (int i = 0; i < operations.size(); i++)
+    s16 ipReg = 0;
+    auto operationIt = operations.find(ipReg);
+    while (operationIt != operations.cend())
     {
-        const auto& op = operations[i];
-
+        const auto& op = operationIt->second;
         op.PrintOp();
         op.operands[0].Print();
         if (op.operands[1].type != Operand::Type::None)
@@ -346,22 +346,35 @@ int main(int argc, char* argv[])
             std::cout << ", ";
             op.operands[1].Print();
         }
-
+    
         if (executeInstructions)
         {
             switch (op.type)
             {
             case Operation::Type::Operation:
-                std::cout << ExecuteOp(op.opIndex, op.operands);
+                std::cout << ExecuteOp(op.opIndex, op.operands) << " ip:" << HexString(ipReg) << " -> ";
+                ipReg += op.size + 1;
+                std::cout << HexString(ipReg);
                 break;
             case Operation::Type::Jump:
             case Operation::Type::Loop:
+                std::cout << " ip:" << HexString(ipReg) << " -> ";
+                if (flags[Flag::FLAG_ZERO] == 0)
+                {
+                    ipReg += op.operands[0].jump.value; // disp is negative (future me: or is it?)
+                }
+                else
+                {
+                    ipReg += op.size + 1;
+                }
+                std::cout << HexString(ipReg);
                 break;
             default:
                 break;
             }
         }
 
+        operationIt = operations.find(ipReg);
         std::cout << '\n';
     }
 
