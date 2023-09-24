@@ -50,12 +50,12 @@ constexpr const char* loopNames[] = {
 };
 
 constexpr const char* operationNames[] = {
-    {"add "}, // 0
-    {"mov "}, // 1
-    {"___ "}, // 2
-    {"___ "}, // 3
-    {"___ "}, // 4
-    {"sub "}, // 5
-    {"___ "}, // 6
-    {"cmp "}, // 7
+    "add ", // 0
+    "mov ", // 1
+    "___ ", // 2
+    "___ ", // 3
+    "___ ", // 4
+    "sub ", // 5
+    "___ ", // 6
+    "cmp ", // 7
 };

@@ -122,8 +122,33 @@ int main(int argc, char* argv[])
 
     struct Operation
     {
-        std::string instructionStr;
+        enum class Type {Operation, Jump, Loop};
+        
+        Type type;
+        union {
+            OpIndex opIndex;
+            OpJump opJumpIndex;
+            OpLoop opLoopIndex;
+        };
         Operand operands[2];
+
+        void PrintOp() const
+        {
+            switch (type)
+            {
+            case Operation::Type::Operation:
+                std::cout << operationNames[opIndex] << " ";
+                break;
+            case Operation::Type::Jump:
+                std::cout << jumpNames[opJumpIndex] << " ";
+                break;
+            case Operation::Type::Loop:
+                std::cout << loopNames[opLoopIndex] << " ";
+                break;
+            default:
+                break;
+            }
+        }
     };
 
     std::vector<Operation> operations;
@@ -132,17 +157,15 @@ int main(int argc, char* argv[])
     int byteIndex = 0;
     while (byteIndex < bytes.size())
     {
+        Operation operation{};
         Operand left{}, right{};
-        std::string instructionStr;
 
         u8 instructionByte = bytes[byteIndex];
         u8 bitD = (instructionByte & 2) >> 1;
         u8 bitW = (instructionByte & 1);
 
-        if (auto opIndex = IsReg_Mem_Reg(instructionByte); opIndex != OpIndex::UNDEFINED)
+        if (operation.opIndex = IsReg_Mem_Reg(instructionByte); operation.opIndex != OpIndex::UNDEFINED)
         {
-            instructionStr = operationNames[opIndex];
-
             u8 adjByte = bytes[++byteIndex];
 
             u8 mod = (adjByte >> 6);
@@ -158,7 +181,7 @@ int main(int argc, char* argv[])
                 if (executeInstructions)
                 {
                     //rightOperand += "\t; " + leftOperand + ": " +
-                    //    ExecuteOp(opIndex, RegisterMemoryIndex(rm, bitW), registersMem[RegisterMemoryIndex(reg, bitW)]);
+                    //    ExecuteOp(operation.opIndex, RegisterMemoryIndex(rm, bitW), registersMem[RegisterMemoryIndex(reg, bitW)]);
                 }
             }
             else
@@ -197,20 +220,15 @@ int main(int argc, char* argv[])
 
             u8 adjByte = bytes[++byteIndex];
             u8 mod     = (adjByte >> 6);
-            u8 opIndex = (adjByte & 0b111'000) >> 3;
             u8 rm      = (adjByte & 0b111);
+            operation.opIndex    = OpIndex((adjByte & 0b111'000) >> 3);
 
             if ((instructionByte & 0b1111'1110) == 0b1100'0110) // specific MOV instruction
             {
-                opIndex = OpIndex::MOV;
-                instructionStr = operationNames[opIndex];
-            }
-            else
-            {
-                instructionStr = operationNames[opIndex];
+                operation.opIndex = OpIndex::MOV;
             }
 
-            bool dataIsWord = opIndex == OpIndex::MOV  ?  bitW == 1  :  bitS == 0 && bitW == 1;
+            bool dataIsWord = operation.opIndex == OpIndex::MOV  ?  bitW == 1  :  bitS == 0 && bitW == 1;
 
             if (mod == 3) // register mode
             {
@@ -220,7 +238,7 @@ int main(int argc, char* argv[])
                 if (executeInstructions)
                 {
                     //rightOperand += "\t; " + leftOperand + ": " +
-                    //    ExecuteOp((OpIndex)opIndex, RegisterMemoryIndex(rm, bitW), right.immVal.value);
+                    //    ExecuteOp((OpIndex)operation.opIndex, RegisterMemoryIndex(rm, bitW), right.immVal.value);
                 }
             }
             else
@@ -253,7 +271,7 @@ int main(int argc, char* argv[])
         }
         else if ((instructionByte & 0b1111'0000) == 0b1011'0000) // MOV immediate to register
         {
-            instructionStr = operationNames[OpIndex::MOV];
+            operation.opIndex = OpIndex::MOV;
             u8 bitW = (instructionByte & 0b1000) >> 3;
             u8 reg  = (instructionByte & 0b0111);
 
@@ -284,10 +302,8 @@ int main(int argc, char* argv[])
             //    rightOperand = "ax";
             //}
         }
-        else if (auto opIndex = IsImm_Accumulator(instructionByte); opIndex != OpIndex::UNDEFINED)
+        else if (operation.opIndex = IsImm_Accumulator(instructionByte); operation.opIndex != OpIndex::UNDEFINED)
         {
-            instructionStr = operationNames[opIndex];
-
             left.type = Operand::Type::Register;
             left.reg = bitW == 1 ? RegisterIndex::ax : RegisterIndex::al;
 
@@ -298,20 +314,22 @@ int main(int argc, char* argv[])
         {
             if (IsJump(instructionByte))
             {
-                const u8 opIndex = instructionByte & 0b1111;
-                instructionStr = jumpNames[opIndex];
+                operation.type = Operation::Type::Jump;
+                operation.opJumpIndex = OpJump(instructionByte & 0b1111);
             }
             else
             {
-                const u8 opIndex = instructionByte & 0b0011;
-                instructionStr = loopNames[opIndex];
+                operation.type = Operation::Type::Loop;
+                operation.opLoopIndex = OpLoop(instructionByte & 0b0011);
             }
 
             left.type = Operand::Type::JumpDisplacement;
             left.jump.value = (s8)bytes[++byteIndex] + 2;
         }
 
-        operations.push_back({instructionStr, {left, right}});
+        operation.operands[0] = std::move(left);
+        operation.operands[1] = std::move(right);
+        operations.emplace_back(std::move(operation));
 
         prevByteIndex = byteIndex++;
         if (executeInstructions)
@@ -322,7 +340,7 @@ int main(int argc, char* argv[])
 
     for (const Operation& op : operations)
     {
-        std::cout << op.instructionStr << " ";
+        op.PrintOp();
         op.operands[0].Print();
         if (op.operands[1].type != Operand::Type::None)
         {

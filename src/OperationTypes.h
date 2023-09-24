@@ -2,6 +2,32 @@
 
 enum OpIndex { ADD = 0, MOV = 1, SUB = 5, CMP = 7, UNDEFINED = -1 };
 
+enum OpJump {
+    jo,
+    jno,
+    jb,     //jnae
+    jnb,    //jae
+    je,     //jz
+    jne,    //jnz
+    jbe,    //jna
+    ja,     //jnbe
+    js,
+    jns,
+    jp,     //jpe
+    jnp,    //jpo
+    jl,     //jnge
+    jnl,    //jge
+    jle,    //jng
+    jnle,   //jg
+};
+
+enum OpLoop {
+    loopnz, //loopne
+    loopz,  //loope
+    loop,
+    jcxz,
+};
+
 OpIndex IsReg_Mem_Reg(u8 byte)
 {
     u8 mask = 0b1111'1100;
