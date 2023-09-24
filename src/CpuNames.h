@@ -1,7 +1,7 @@
 #pragma once
 
 constexpr const char* registerNames[] = {
-    "",
+    "__",
     "al", "ah", "ax",
     "bl", "bh", "bx",
     "cl", "ch", "cx",

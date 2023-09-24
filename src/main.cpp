@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <bitset>
 #include <string>
+#include <cassert>
 
 #include "Defines.h"
 #include "CpuMemory.h"
@@ -33,24 +34,52 @@ std::string OutputChangeInFlags(const bool* prevFlags)
     return "flags: " + prevFlagsStr + "->" + currFlagsStr;
 }
 
-std::string ExecuteOp(OpIndex opIndex, u8 outputRegMemIndex, u16 data)
+std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
 {
-    auto prevData = registersMem[outputRegMemIndex];
     bool prevFlags[Flag::FLAG_COUNT] = {};
     for (int i : flags)
         prevFlags[i] = flags[i];
+
+    u16 prevDestData;
+    std::string regName;
+    u16* const destination = [&](){
+        u16* dest = nullptr;
+        switch (operands[0].type)
+        {
+        case Operand::Type::Register:
+            dest = GetRegisterMem(operands[0].reg);
+            prevDestData = *dest;
+            regName = std::string(" ; ") + registerNames[operands[0].reg] + ":";
+            break;
+            // TODO: add more destinations
+        }
+        assert(dest != nullptr);
+        return dest;
+    }();
+
+    u16 data;
+    switch (operands[1].type)
+    {
+    case Operand::Type::Register:
+        data = *GetRegisterMem(operands[1].reg);
+        break;
+    case Operand::Type::Immediate:
+        data = operands[1].immVal.value;
+        break;
+        // TODO: add more data retrieval
+    }
 
     // Execute operation
     switch (opIndex)
     {
     case OpIndex::MOV:
-        registersMem[outputRegMemIndex] = data;
+        *destination = data;
         break;
     case OpIndex::ADD:
-        registersMem[outputRegMemIndex] += data;
+        *destination += data;
         break;
     case OpIndex::SUB:
-        registersMem[outputRegMemIndex] -= data;
+        *destination -= data;
         break;
     case OpIndex::CMP:
         break;
@@ -59,35 +88,21 @@ std::string ExecuteOp(OpIndex opIndex, u8 outputRegMemIndex, u16 data)
     // Check flags and format output
     switch (opIndex)
     {
-    case MOV:
-        return HexString(prevData) + " -> " + HexString(registersMem[outputRegMemIndex]);
+    case OpIndex::MOV:
+        return regName + HexString(prevDestData) + " -> " + HexString(*destination);
         break;
-    case ADD:
-    case SUB:
-        flags[Flag::FLAG_ZERO] = registersMem[outputRegMemIndex] == 0;
-        flags[Flag::FLAG_SIGNED] = (registersMem[outputRegMemIndex] & 0x8000) >> 15 == 1;
-        return HexString(prevData) + " -> " + HexString(registersMem[outputRegMemIndex]) + "\t" + OutputChangeInFlags(prevFlags);
-    case CMP:
-        flags[Flag::FLAG_SIGNED] = (registersMem[outputRegMemIndex] & 0x8000) >> 15 == 1;
+    case OpIndex::ADD:
+    case OpIndex::SUB:
+        flags[Flag::FLAG_ZERO] = *destination == 0;
+        flags[Flag::FLAG_SIGNED] = (*destination & 0x8000) >> 15 == 1;
+        return regName + HexString(prevDestData) + " -> " + HexString(*destination) + "\t" + OutputChangeInFlags(prevFlags);
+    case OpIndex::CMP:
+        flags[Flag::FLAG_SIGNED] = (*destination & 0x8000) >> 15 == 1;
         return OutputChangeInFlags(prevFlags);
     }
 
-    return "";
-}
-
-u8 RegisterMemoryIndex(u8 reg, u8 bitW)
-{
-    if (reg < 4 && bitW == 1) // whole register
-        return reg;
-    if (reg < 4 && bitW == 0) // TODO: lower bits of register
-        return reg;
-    if (reg >= 4 && bitW == 0) // TODO: higher bits of register
-        return reg - 4;
-    if (reg >= 4 && bitW == 1) // other registers
-        return reg;
-    
     assert(false);
-    return u8_max;
+    return "";
 }
 
 int main(int argc, char* argv[])
@@ -95,16 +110,16 @@ int main(int argc, char* argv[])
     bool executeInstructions = false;
     if (argc == 2 && strcmp(argv[1], "-exec") == 0)
     {
-        executeInstructions = false;
+        executeInstructions = true;
     }
 
     //std::ifstream file("listings/listing_0038_many_register_mov", std::ios::binary);
     //std::ifstream file("listings/listing_0039_more_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0040_challenge_movs", std::ios::binary);
-    std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
+    //std::ifstream file("listings/listing_0041_add_sub_cmp_jnz", std::ios::binary);
     //std::ifstream file("listings/listing_0043_immediate_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
-    //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
+    std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
     //std::ifstream file("listings/listing_0048_ip_register", std::ios::binary);
     //std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
     //std::ifstream file("listings/listing_0051_memory_mov", std::ios::binary);
@@ -177,12 +192,6 @@ int main(int argc, char* argv[])
                 left.reg = registersMap[rm][bitW];
                 right.type = Operand::Type::Register;
                 right.reg = registersMap[reg][bitW];
-
-                if (executeInstructions)
-                {
-                    //rightOperand += "\t; " + leftOperand + ": " +
-                    //    ExecuteOp(operation.opIndex, RegisterMemoryIndex(rm, bitW), registersMem[RegisterMemoryIndex(reg, bitW)]);
-                }
             }
             else
             {
@@ -234,12 +243,6 @@ int main(int argc, char* argv[])
             {
                 left.type = Operand::Type::Register;
                 left.reg = registersMap[rm][bitW];
-
-                if (executeInstructions)
-                {
-                    //rightOperand += "\t; " + leftOperand + ": " +
-                    //    ExecuteOp((OpIndex)operation.opIndex, RegisterMemoryIndex(rm, bitW), right.immVal.value);
-                }
             }
             else
             {
@@ -279,12 +282,6 @@ int main(int argc, char* argv[])
             left.reg = registersMap[reg][bitW];
             right.type = Operand::Type::Immediate;
             right.immVal.value = bitW == 1 ? CombineLoAndHiToWord(bytes, &byteIndex) : bytes[++byteIndex];
-
-            //if (executeInstructions)
-            //{
-            //    rightOperand += "\t; " + leftOperand + ": " +
-            //        ExecuteOp(OpIndex::MOV, RegisterMemoryIndex(reg, bitW), data);
-            //}
         }
         else if ((instructionByte & 0b1111'1100) == 0b1010'0000) // MOV accumulator
         {
@@ -338,8 +335,10 @@ int main(int argc, char* argv[])
         }
     }
 
-    for (const Operation& op : operations)
+    for (int i = 0; i < operations.size(); i++)
     {
+        const auto& op = operations[i];
+
         op.PrintOp();
         op.operands[0].Print();
         if (op.operands[1].type != Operand::Type::None)
@@ -347,26 +346,43 @@ int main(int argc, char* argv[])
             std::cout << ", ";
             op.operands[1].Print();
         }
+
+        if (executeInstructions)
+        {
+            switch (op.type)
+            {
+            case Operation::Type::Operation:
+                std::cout << ExecuteOp(op.opIndex, op.operands);
+                break;
+            case Operation::Type::Jump:
+            case Operation::Type::Loop:
+                break;
+            default:
+                break;
+            }
+        }
+
         std::cout << '\n';
     }
 
     if (executeInstructions)
     {
-        const auto printRegisterValue = [&](u8 regIndex) {
-            //if (registersMem[regIndex] == 0)
-            //{
-            //    return;
-            //}
-            //auto regName = registerNames[regIndex][1]; // TODO: only considering full 16 bit registers
-            //std::cout << "\n\t" << regName
-            //    << ": " << HexString(registersMem[regIndex]) 
-            //    << " (" << registersMem[regIndex] << ")";
+        const auto printRegisterValue = [&](RegisterIndex regIndex) {
+            auto regValue = *GetRegisterMem(regIndex);
+            if (regValue == 0)
+            {
+                return;
+            }
+            auto regName = registerNames[regIndex]; // TODO: only considering full 16 bit registers
+            std::cout << "\n\t" << regName
+                << ": " << HexString(regValue) 
+                << " (" << regValue << ")";
         };
 
         // Order of registers in memory is mixed up just like in 8086
         // so we manualy reorder values for better order
         std::cout << "\nFinal registers:";
-        for (auto i : {0, 3, 1, 2, 4, 5, 6, 7})
+        for (auto i : {RegisterIndex::ax, RegisterIndex::bx, RegisterIndex::cx, RegisterIndex::dx, RegisterIndex::sp, RegisterIndex::bp, RegisterIndex::si, RegisterIndex::di, })
         {
             printRegisterValue(i);
         }
