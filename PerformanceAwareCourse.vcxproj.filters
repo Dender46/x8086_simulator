@@ -35,5 +35,8 @@
     <ClInclude Include="src\CpuNames.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\DecoderOperands.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

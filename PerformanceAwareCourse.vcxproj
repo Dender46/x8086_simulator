@@ -133,6 +133,7 @@
   <ItemGroup>
     <ClInclude Include="src\CpuMemory.h" />
     <ClInclude Include="src\CpuNames.h" />
+    <ClInclude Include="src\DecoderOperands.h" />
     <ClInclude Include="src\Defines.h" />
     <ClInclude Include="src\Helpers.h" />
     <ClInclude Include="src\OperationTypes.h" />

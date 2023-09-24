@@ -9,7 +9,7 @@
 #include "CpuNames.h"
 #include "Helpers.h"
 #include "OperationTypes.h"
-#include <unordered_map>
+#include "DecoderOperands.h"
 
 u16 CombineLoAndHiToWord(const std::vector<u8>& bytesArr, int* byteIndex)
 {
@@ -90,143 +90,6 @@ u8 RegisterMemoryIndex(u8 reg, u8 bitW)
     return u8_max;
 }
 
-enum class OperandType
-{
-    None,
-    Register,
-    Immediate,
-    Memory,
-    DirectAddress,
-    JumpDisplacement,
-};
-
-enum RegisterIndex
-{
-    None,
-    al, ah, ax,
-    bl, bh, bx,
-    cl, ch, cx,
-    dl, dh, dx,
-    sp,
-    bp,
-    si,
-    di,
-};
-
-constexpr RegisterIndex registersMap[][2] = {
-    {RegisterIndex::al, RegisterIndex::ax},
-    {RegisterIndex::cl, RegisterIndex::cx},
-    {RegisterIndex::dl, RegisterIndex::dx},
-    {RegisterIndex::bl, RegisterIndex::bx},
-    {RegisterIndex::ah, RegisterIndex::sp},
-    {RegisterIndex::ch, RegisterIndex::bp},
-    {RegisterIndex::dh, RegisterIndex::si},
-    {RegisterIndex::bh, RegisterIndex::di},
-};
-
-struct ImmediateValue
-{
-    s16 value;
-};
-
-struct JumpDisplacement
-{
-    s16 value;
-};
-
-struct MemoryExpr
-{
-    enum class ExplicitWide { None, Byte, Word };
-
-    RegisterIndex registers[2]; // second register might not be present
-    s16 disp = 0; // might be optional, or required for direct access mode
-    ExplicitWide explicitWide; // used for immediate operation
-
-    const char* GetExplicitWide() const
-    {
-        switch (explicitWide)
-        {
-        case MemoryExpr::ExplicitWide::None:  return "";      break;
-        case MemoryExpr::ExplicitWide::Byte:  return "byte "; break;
-        case MemoryExpr::ExplicitWide::Word:  return "word "; break;
-        default:
-            return "";
-            break;
-        }
-    }
-
-    void SetRegistersOfExpression(u8 rm, u8 mod)
-    {
-        switch (rm)
-        {
-        case 0: registers[0] = RegisterIndex::bx; registers[1] = RegisterIndex::si; break;
-        case 1: registers[0] = RegisterIndex::bx; registers[1] = RegisterIndex::di; break;
-        case 2: registers[0] = RegisterIndex::bp; registers[1] = RegisterIndex::si; break;
-        case 3: registers[0] = RegisterIndex::bp; registers[1] = RegisterIndex::di; break;
-        case 4: registers[0] = RegisterIndex::si; registers[1] = RegisterIndex::None; break;
-        case 5: registers[0] = RegisterIndex::di; registers[1] = RegisterIndex::None; break;
-        case 7: registers[0] = RegisterIndex::bx; registers[1] = RegisterIndex::None; break;
-        case 6: 
-            if (mod == 0) { // Direct access
-                registers[0] = RegisterIndex::None; registers[1] = RegisterIndex::None;
-            } else {
-                registers[0] = RegisterIndex::bp; registers[1] = RegisterIndex::None;
-            }
-            break;
-        }
-    }
-};
-
-struct Operand
-{
-    OperandType type;
-    union {
-        RegisterIndex reg;
-        MemoryExpr mem;
-        ImmediateValue immVal;
-        JumpDisplacement jump;
-    };
-
-    void Print() const
-    {
-        switch (type)
-        {
-        case OperandType::None:
-            break;
-        case OperandType::Register:
-            std::cout << registerNames[reg];
-            break;
-        case OperandType::Immediate:
-            std::cout << std::to_string(immVal.value);
-            break;
-        case OperandType::Memory:
-            std::cout << mem.GetExplicitWide();
-            std::cout << '[';
-            if (mem.registers[0] != RegisterIndex::None) std::cout << registerNames[mem.registers[0]];
-            if (mem.registers[1] != RegisterIndex::None) std::cout << " + " << registerNames[mem.registers[1]];
-            if (mem.disp != 0)                           std::cout << " + " << std::to_string(mem.disp);
-            std::cout << ']';
-            break;
-        case OperandType::DirectAddress:
-            std::cout << mem.GetExplicitWide();
-            std::cout << '[';
-            std::cout << std::to_string(mem.disp);
-            std::cout << ']';
-            break;
-        case OperandType::JumpDisplacement:
-            std::cout << '$';
-            if (jump.value > 0)
-                std::cout << '+' << std::to_string(jump.value);
-            else if (jump.value < 0)
-                std::cout << std::to_string(jump.value);
-            std::cout << "+0";
-            break;
-        default:
-            break;
-        }
-    }
-};
-
 int main(int argc, char* argv[])
 {
     bool executeInstructions = false;
@@ -287,9 +150,9 @@ int main(int argc, char* argv[])
             u8 rm =  (adjByte & 0b00'000'111);
             if (mod == 3) // register mode
             {
-                left.type = OperandType::Register;
+                left.type = Operand::Type::Register;
                 left.reg = registersMap[rm][bitW];
-                right.type = OperandType::Register;
+                right.type = Operand::Type::Register;
                 right.reg = registersMap[reg][bitW];
 
                 if (executeInstructions)
@@ -300,16 +163,16 @@ int main(int argc, char* argv[])
             }
             else
             {
-                left.type = OperandType::Register;
+                left.type = Operand::Type::Register;
                 left.reg = registersMap[reg][bitW];
-                right.type = OperandType::Memory;
+                right.type = Operand::Type::Memory;
                 right.mem.SetRegistersOfExpression(rm, mod);
 
                 if (mod == 0)
                 {
                     if (rm == 0b0110)
                     {
-                        right.type = OperandType::DirectAddress;
+                        right.type = Operand::Type::DirectAddress;
                         right.mem.disp = bitW == 1 ? CombineLoAndHiToWord(bytes, &byteIndex) : bytes[++byteIndex];
                     }
                 }
@@ -351,7 +214,7 @@ int main(int argc, char* argv[])
 
             if (mod == 3) // register mode
             {
-                left.type = OperandType::Register;
+                left.type = Operand::Type::Register;
                 left.reg = registersMap[rm][bitW];
 
                 if (executeInstructions)
@@ -362,7 +225,7 @@ int main(int argc, char* argv[])
             }
             else
             {
-                left.type = OperandType::Memory;
+                left.type = Operand::Type::Memory;
                 left.mem.SetRegistersOfExpression(rm, mod);
                 left.mem.explicitWide = bitW == 1 ? MemoryExpr::ExplicitWide::Word : MemoryExpr::ExplicitWide::Byte;
 
@@ -371,7 +234,7 @@ int main(int argc, char* argv[])
                     // SPECIAL CASE
                     if (rm == 0b0110)
                     {
-                        left.type = OperandType::DirectAddress;
+                        left.type = Operand::Type::DirectAddress;
                         left.mem.disp = CombineLoAndHiToWord(bytes, &byteIndex);
                     }
                 }
@@ -385,7 +248,7 @@ int main(int argc, char* argv[])
                 }
             }
 
-            right.type = OperandType::Immediate;
+            right.type = Operand::Type::Immediate;
             right.immVal.value = dataIsWord ? CombineLoAndHiToWord(bytes, &byteIndex) : bytes[++byteIndex];
         }
         else if ((instructionByte & 0b1111'0000) == 0b1011'0000) // MOV immediate to register
@@ -394,9 +257,9 @@ int main(int argc, char* argv[])
             u8 bitW = (instructionByte & 0b1000) >> 3;
             u8 reg  = (instructionByte & 0b0111);
 
-            left.type = OperandType::Register;
+            left.type = Operand::Type::Register;
             left.reg = registersMap[reg][bitW];
-            right.type = OperandType::Immediate;
+            right.type = Operand::Type::Immediate;
             right.immVal.value = bitW == 1 ? CombineLoAndHiToWord(bytes, &byteIndex) : bytes[++byteIndex];
 
             //if (executeInstructions)
@@ -425,10 +288,10 @@ int main(int argc, char* argv[])
         {
             instructionStr = operationNames[opIndex];
 
-            left.type = OperandType::Register;
+            left.type = Operand::Type::Register;
             left.reg = bitW == 1 ? RegisterIndex::ax : RegisterIndex::al;
 
-            right.type = OperandType::Immediate;
+            right.type = Operand::Type::Immediate;
             right.immVal.value = bitW == 1 ? CombineLoAndHiToWord(bytes, &byteIndex) : bytes[++byteIndex];
         }
         else if (IsJump(instructionByte) || IsLoop(instructionByte))
@@ -444,7 +307,7 @@ int main(int argc, char* argv[])
                 instructionStr = loopNames[opIndex];
             }
 
-            left.type = OperandType::JumpDisplacement;
+            left.type = Operand::Type::JumpDisplacement;
             left.jump.value = (s8)bytes[++byteIndex] + 2;
         }
 
@@ -461,7 +324,7 @@ int main(int argc, char* argv[])
     {
         std::cout << op.instructionStr << " ";
         op.operands[0].Print();
-        if (op.operands[1].type != OperandType::None)
+        if (op.operands[1].type != Operand::Type::None)
         {
             std::cout << ", ";
             op.operands[1].Print();
