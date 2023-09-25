@@ -22,6 +22,7 @@ struct MemoryExpr
 
     RegisterIndex registers[2]{}; // second register might not be present
     s16 disp = 0; // might be optional, or required for direct access mode
+    bool pointsToWord = false;
     ExplicitWide explicitWide = ExplicitWide::None; // used for immediate operation
 
     const char* GetExplicitWide() const
@@ -56,6 +57,13 @@ struct MemoryExpr
             }
             break;
         }
+    }
+
+    u16 Evaluate() const
+    {
+        u16 reg0 = registers[0] != RegisterIndex::None ? *GetRegisterMem(registers[0]) : 0;
+        u16 reg1 = registers[1] != RegisterIndex::None ? *GetRegisterMem(registers[1]) : 0;
+        return reg0 + reg1 + disp;
     }
 };
 

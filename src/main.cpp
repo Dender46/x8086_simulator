@@ -43,18 +43,31 @@ std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
 
     u16 prevDestData;
     std::string regName;
-    u16* const destination = [&](){
-        u16* dest = nullptr;
+    MemoryAccess destination = [&](){
+        MemoryAccess dest{};
         switch (operands[0].type)
         {
         case Operand::Type::Register:
-            dest = GetRegisterMem(operands[0].reg);
+            dest.type = MemoryAccess::Type::Full;
+            dest.full = GetRegisterMem(operands[0].reg);
+            prevDestData = *dest;
+            regName = std::string(" ; ") + registerNames[operands[0].reg] + ":";
+            break;
+        case Operand::Type::DirectAddress:
+            dest.type = operands[0].mem.pointsToWord ? MemoryAccess::Type::Word : MemoryAccess::Type::Byte;
+            dest.SetAddress(&mainMemory[operands[0].mem.disp]);
+            prevDestData = *dest;
+            regName = std::string(" ; ") + registerNames[operands[0].reg] + ":";
+            break;
+        case Operand::Type::Memory:
+            dest.type = operands[0].mem.pointsToWord ? MemoryAccess::Type::Word : MemoryAccess::Type::Byte;
+            dest.SetAddress(&mainMemory[operands[0].mem.Evaluate()]);
             prevDestData = *dest;
             regName = std::string(" ; ") + registerNames[operands[0].reg] + ":";
             break;
             // TODO: add more destinations
         }
-        assert(dest != nullptr);
+        assert(dest.type != MemoryAccess::Type::None);
         return dest;
     }();
 
@@ -67,6 +80,22 @@ std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
     case Operand::Type::Immediate:
         data = operands[1].immVal.value;
         break;
+    case Operand::Type::DirectAddress:
+        {
+            MemoryAccess memAccess{};
+            memAccess.type = operands[1].mem.pointsToWord ? MemoryAccess::Type::Word : MemoryAccess::Type::Byte;
+            memAccess.SetAddress(&mainMemory[operands[1].mem.disp]);
+            data = *memAccess;
+        }
+        break;
+    case Operand::Type::Memory:
+        {
+            MemoryAccess memAccess{};
+            memAccess.type = operands[1].mem.pointsToWord ? MemoryAccess::Type::Word : MemoryAccess::Type::Byte;
+            memAccess.SetAddress(&mainMemory[operands[1].mem.Evaluate()]);
+            data = *memAccess;
+        }
+        break;
         // TODO: add more data retrieval
     }
 
@@ -74,13 +103,13 @@ std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
     switch (opIndex)
     {
     case OpIndex::MOV:
-        *destination = data;
+        destination.SetData(data);
         break;
     case OpIndex::ADD:
-        *destination += data;
+        destination.AddData(data);
         break;
     case OpIndex::SUB:
-        *destination -= data;
+        destination.SubData(data);
         break;
     case OpIndex::CMP:
         break;
@@ -154,8 +183,8 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0044_register_movs", std::ios::binary);
     //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
     //std::ifstream file("listings/listing_0048_ip_register", std::ios::binary);
-    std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
-    //std::ifstream file("listings/listing_0051_memory_mov", std::ios::binary);
+    //std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
+    std::ifstream file("listings/listing_0051_memory_mov", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -200,6 +229,7 @@ int main(int argc, char* argv[])
                 left.type = Operand::Type::Register;
                 left.reg = registersMap[reg][bitW];
                 right.type = Operand::Type::Memory;
+                right.mem.pointsToWord = bitW == 1;
                 right.mem.SetRegistersOfExpression(rm, mod);
 
                 if (mod == 0)
@@ -232,7 +262,7 @@ int main(int argc, char* argv[])
             u8 adjByte = bytes[++byteIndex];
             u8 mod     = (adjByte >> 6);
             u8 rm      = (adjByte & 0b111);
-            operation.opIndex    = OpIndex((adjByte & 0b111'000) >> 3);
+            operation.opIndex = OpIndex((adjByte & 0b111'000) >> 3);
 
             if ((instructionByte & 0b1111'1110) == 0b1100'0110) // specific MOV instruction
             {
@@ -250,6 +280,7 @@ int main(int argc, char* argv[])
             {
                 left.type = Operand::Type::Memory;
                 left.mem.SetRegistersOfExpression(rm, mod);
+                left.mem.pointsToWord = dataIsWord;
                 left.mem.explicitWide = bitW == 1 ? MemoryExpr::ExplicitWide::Word : MemoryExpr::ExplicitWide::Byte;
 
                 if (mod == 0) // memory mode, no displacement follows
