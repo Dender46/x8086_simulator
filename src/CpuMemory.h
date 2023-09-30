@@ -98,8 +98,8 @@ struct MemoryAccess
         switch (type)
         {
         case Type::None:
-        case Type::Byte: // how do we handle this?
-            assert(false);
+        case Type::Byte:
+            *byte = data & 255;
             break;
         case Type::Word:
             *(word.low)  = data & 0b1111'1111;
@@ -113,44 +113,44 @@ struct MemoryAccess
         }
     }
 
-    void AddData(u16 data)
+    u16 operator+(u16 data) const
     {
         switch (type)
         {
         case Type::None:
-        case Type::Byte: // how do we handle this?
-            assert(false);
-            break;
+        case Type::Byte:
+            return *byte + data & 255;
         case Type::Word:
-            *(word.low)  += data & 0b1111'1111;
-            *(word.high) += data & 0b1111'1111'0000'0000;
-            break;
-        case Type::Full:
-            *full += data;
-            break;
-        default:
-            break;
+        {
+            u8 tmpLow =  *(word.low) + data & 0b1111'1111;
+            u8 tmpHigh = *(word.high) + data & 0b1111'1111'0000'0000;
+            return (tmpHigh << 8) | tmpLow;
         }
+        case Type::Full:
+            return *full + data;
+        }
+        assert(false);
+        return 0;
     }
 
-    void SubData(u16 data)
+    u16 operator-(u16 data) const
     {
         switch (type)
         {
         case Type::None:
-        case Type::Byte: // how do we handle this?
-            assert(false);
-            break;
+        case Type::Byte:
+            return *byte - data & 255;
         case Type::Word:
-            *(word.low)  -= data & 0b1111'1111;
-            *(word.high) -= data & 0b1111'1111'0000'0000;
-            break;
-        case Type::Full:
-            *full -= data;
-            break;
-        default:
-            break;
+        {
+            u8 tmpLow =  *(word.low) - data & 0b1111'1111;
+            u8 tmpHigh = *(word.high) - data & 0b1111'1111'0000'0000;
+            return (tmpHigh << 8) | tmpLow;
         }
+        case Type::Full:
+            return *full - data;
+        }
+        assert(false);
+        return 0;
     }
 
     u16 const& operator*() const
@@ -170,4 +170,10 @@ struct MemoryAccess
         assert(false);
         return 0;
     }
+
+    bool IsWide()
+    {
+        return type == Type::Word || type == Type::Full;
+    }
+
 };

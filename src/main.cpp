@@ -100,18 +100,23 @@ std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
     }
 
     // Execute operation
+    u16 newValue = 0;
     switch (opIndex)
     {
     case OpIndex::MOV:
+        newValue = data;
         destination.SetData(data);
         break;
     case OpIndex::ADD:
-        destination.AddData(data);
+        newValue = destination + data;
+        destination.SetData(newValue);
         break;
     case OpIndex::SUB:
-        destination.SubData(data);
+        newValue = destination - data;
+        destination.SetData(newValue);
         break;
     case OpIndex::CMP:
+        newValue = destination - data;
         break;
     }
 
@@ -119,15 +124,20 @@ std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
     switch (opIndex)
     {
     case OpIndex::MOV:
-        return regName + HexString(prevDestData) + " -> " + HexString(*destination);
+        return regName + HexString(prevDestData) + " -> " + HexString(newValue);
         break;
     case OpIndex::ADD:
     case OpIndex::SUB:
-        flags[Flag::FLAG_ZERO] = *destination == 0;
-        flags[Flag::FLAG_SIGNED] = (*destination & 0x8000) >> 15 == 1;
-        return regName + HexString(prevDestData) + " -> " + HexString(*destination) + "\t" + OutputChangeInFlags(prevFlags);
+        flags[Flag::FLAG_ZERO] = newValue == 0;
+        flags[Flag::FLAG_SIGNED] = destination.IsWide()
+            ? (newValue) & 0x8000
+            : (newValue) & 0x80;
+        return regName + HexString(prevDestData) + " -> " + HexString(newValue) + "\t" + OutputChangeInFlags(prevFlags);
     case OpIndex::CMP:
-        flags[Flag::FLAG_SIGNED] = (*destination & 0x8000) >> 15 == 1;
+        flags[Flag::FLAG_ZERO] = newValue == 0;
+        flags[Flag::FLAG_SIGNED] = destination.IsWide()
+            ? (newValue) & 0x8000
+            : (newValue) & 0x80;
         return OutputChangeInFlags(prevFlags);
     }
 
@@ -170,7 +180,7 @@ struct Operation
 int main(int argc, char* argv[])
 {
     bool executeInstructions = false;
-    if (argc == 2 && strcmp(argv[1], "-exec") == 0)
+    if (argc == 2 && strcmp(argv[1], "--exec") == 0)
     {
         executeInstructions = true;
     }
@@ -184,7 +194,8 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0046_add_sub_cmp", std::ios::binary);
     //std::ifstream file("listings/listing_0048_ip_register", std::ios::binary);
     //std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
-    std::ifstream file("listings/listing_0051_memory_mov", std::ios::binary);
+    //std::ifstream file("listings/listing_0051_memory_mov", std::ios::binary);
+    std::ifstream file("listings/listing_0054_draw_rectangle", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -230,6 +241,7 @@ int main(int argc, char* argv[])
                 left.reg = registersMap[reg][bitW];
                 right.type = Operand::Type::Memory;
                 right.mem.pointsToWord = bitW == 1;
+                right.mem.explicitWide = bitW == 1 ? MemoryExpr::ExplicitWide::Word : MemoryExpr::ExplicitWide::Byte;
                 right.mem.SetRegistersOfExpression(rm, mod);
 
                 if (mod == 0)
@@ -377,7 +389,7 @@ int main(int argc, char* argv[])
             std::cout << ", ";
             op.operands[1].Print();
         }
-    
+
         if (executeInstructions)
         {
             switch (op.type)
