@@ -180,9 +180,17 @@ struct Operation
 int main(int argc, char* argv[])
 {
     bool executeInstructions = false;
-    if (argc == 2 && strcmp(argv[1], "--exec") == 0)
+    bool dumpMemory = false;
+    while (argc--)
     {
-        executeInstructions = true;
+        if (!strcmp(argv[argc], "--exec"))
+        {
+            executeInstructions = true;
+        }
+        if (!strcmp(argv[argc], "--dump"))
+        {
+            dumpMemory = true;
+        }
     }
 
     //std::ifstream file("listings/listing_0038_many_register_mov", std::ios::binary);
@@ -195,7 +203,8 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0048_ip_register", std::ios::binary);
     //std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
     //std::ifstream file("listings/listing_0051_memory_mov", std::ios::binary);
-    std::ifstream file("listings/listing_0054_draw_rectangle", std::ios::binary);
+    //std::ifstream file("listings/listing_0054_draw_rectangle", std::ios::binary);
+    std::ifstream file("listings/draw_rect_better", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -452,6 +461,16 @@ int main(int argc, char* argv[])
             if (flags[i])
                 std::cout << FlagStr((Flag)i);
         }
+    }
+
+    if (dumpMemory)
+    {
+        std::ofstream memoryDumpFile{ "memoryDump.data", std::ios::binary };
+        std::copy(
+            std::begin(mainMemory),
+            std::end(mainMemory),
+            std::ostream_iterator<u8>(memoryDumpFile)
+        );
     }
 
     return 0;

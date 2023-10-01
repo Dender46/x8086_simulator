@@ -59,8 +59,8 @@ u16* GetRegisterMem(RegisterIndex regIndex)
 
 bool flags[Flag::FLAG_COUNT] = {};
 
-#define MAIN_MEMORY_LIMIT 65536
-u8 mainMemory[MAIN_MEMORY_LIMIT] = {};
+constexpr unsigned int mainMemoryLimit = 256 * 256;
+u8 mainMemory[mainMemoryLimit] = {};
 
 struct MemoryAccess
 {
