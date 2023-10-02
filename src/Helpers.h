@@ -1,5 +1,9 @@
 #pragma once
+#include <string>
+#include <sstream>
 #include <cassert>
+
+#include "CpuMemory.h"
 
 /* START OF STRING HELPERS */
 std::string HexString(u16 byte)

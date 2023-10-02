@@ -1,5 +1,7 @@
 #pragma once
 
+#include "DecoderOperands.h"
+
 enum OpIndex { ADD = 0, MOV = 1, SUB = 5, CMP = 7, UNDEFINED = -1 };
 
 enum OpJump {
@@ -26,6 +28,38 @@ enum OpLoop {
     loopz,  //loope
     loop,
     jcxz,
+};
+
+struct Operation
+{
+    enum class Type {Operation, Jump, Loop};
+        
+    Type type = Type::Operation;
+    int size = 0;
+    union {
+        OpIndex opIndex;
+        OpJump opJumpIndex;
+        OpLoop opLoopIndex;
+    };
+    Operand operands[2]{};
+
+    void PrintOp() const
+    {
+        switch (type)
+        {
+        case Operation::Type::Operation:
+            std::cout << operationNames[opIndex] << " ";
+            break;
+        case Operation::Type::Jump:
+            std::cout << jumpNames[opJumpIndex] << " ";
+            break;
+        case Operation::Type::Loop:
+            std::cout << loopNames[opLoopIndex] << " ";
+            break;
+        default:
+            break;
+        }
+    }
 };
 
 OpIndex IsReg_Mem_Reg(u8 byte)
