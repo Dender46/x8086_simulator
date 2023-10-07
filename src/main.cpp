@@ -12,6 +12,7 @@
 #include "CpuOperations.h"
 #include "DecoderOperands.h"
 #include "CpuExecution.h"
+#include "CycleEstimation.h"
 
 u16 CombineLoAndHiToWord(const std::vector<u8>& bytesArr, int* byteIndex)
 {
@@ -24,6 +25,7 @@ int main(int argc, char* argv[])
 {
     bool executeInstructions = false;
     bool dumpMemory = false;
+    bool cyclesEstimate = false;
     while (argc--)
     {
         if (!strcmp(argv[argc], "--exec"))
@@ -33,6 +35,10 @@ int main(int argc, char* argv[])
         if (!strcmp(argv[argc], "--dump"))
         {
             dumpMemory = true;
+        }
+        if (!strcmp(argv[argc], "--cyclesEstimate"))
+        {
+            cyclesEstimate = true;
         }
     }
 
@@ -47,7 +53,9 @@ int main(int argc, char* argv[])
     //std::ifstream file("listings/listing_0049_conditional_jumps", std::ios::binary);
     //std::ifstream file("listings/listing_0051_memory_mov", std::ios::binary);
     //std::ifstream file("listings/listing_0054_draw_rectangle", std::ios::binary);
-    std::ifstream file("listings/draw_rect_better", std::ios::binary);
+    //std::ifstream file("listings/draw_rect_better", std::ios::binary);
+    //std::ifstream file("listings/listing_0056_estimating_cycles", std::ios::binary);
+    std::ifstream file("listings/listing_0057_challenge_cycles", std::ios::binary);
     if (!file.is_open())
     {
         std::cerr << "!!! Can't open file !!!\n";
@@ -228,6 +236,7 @@ int main(int argc, char* argv[])
     }
 
     s16 ipReg = 0;
+    u16 totalEstimatedCycles = 0;
     auto operationIt = operations.find(ipReg);
     while (operationIt != operations.cend())
     {
@@ -265,6 +274,13 @@ int main(int argc, char* argv[])
             default:
                 break;
             }
+        }
+
+        if (cyclesEstimate)
+        {
+            int cyclesCount = CycleEstimation(op);
+            totalEstimatedCycles += cyclesCount;
+            std::cout << " | Clocks: +" << cyclesCount << " = " << totalEstimatedCycles;
         }
 
         operationIt = operations.find(ipReg);

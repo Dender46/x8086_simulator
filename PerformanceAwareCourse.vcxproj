@@ -128,6 +128,7 @@
     <ClInclude Include="src\CpuMemory.h" />
     <ClInclude Include="src\CpuNames.h" />
     <ClInclude Include="src\CpuOperations.h" />
+    <ClInclude Include="src\CycleEstimation.h" />
     <ClInclude Include="src\DecoderOperands.h" />
     <ClInclude Include="src\Defines.h" />
     <ClInclude Include="src\Helpers.h" />
