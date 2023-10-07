@@ -100,7 +100,6 @@ int main(int argc, char* argv[])
                 {
                     if (rm == 0b0110)
                     {
-                        right.type = Operand::Type::DirectAddress;
                         right.mem.disp = bitW == 1 ? CombineLoAndHiToWord(bytes, &byteIndex) : bytes[++byteIndex];
                     }
                 }
@@ -152,7 +151,6 @@ int main(int argc, char* argv[])
                     // SPECIAL CASE
                     if (rm == 0b0110)
                     {
-                        left.type = Operand::Type::DirectAddress;
                         left.mem.disp = CombineLoAndHiToWord(bytes, &byteIndex);
                     }
                 }
@@ -256,7 +254,7 @@ int main(int argc, char* argv[])
                 std::cout << " ip:" << HexString(ipReg) << " -> ";
                 if (flags[Flag::FLAG_ZERO] == 0)
                 {
-                    ipReg += op.operands[0].jump.value; // disp is negative (future me: or is it?)
+                    ipReg += op.operands[0].jump.value; // disp is negative (future me: or is it?) (futurer me: this is handled by default right?)
                 }
                 else
                 {

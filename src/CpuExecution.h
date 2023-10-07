@@ -42,12 +42,6 @@ std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
             prevDestData = *dest;
             regName = std::string(" ; ") + registerNames[operands[0].reg] + ":";
             break;
-        case Operand::Type::DirectAddress:
-            dest.type = operands[0].mem.pointsToWord ? MemoryAccess::Type::Word : MemoryAccess::Type::Byte;
-            dest.SetAddress(&mainMemory[operands[0].mem.disp]);
-            prevDestData = *dest;
-            regName = std::string(" ; ") + registerNames[operands[0].reg] + ":";
-            break;
         case Operand::Type::Memory:
             dest.type = operands[0].mem.pointsToWord ? MemoryAccess::Type::Word : MemoryAccess::Type::Byte;
             dest.SetAddress(&mainMemory[operands[0].mem.Evaluate()]);
@@ -68,14 +62,6 @@ std::string ExecuteOp(OpIndex opIndex, const Operand operands[2])
         break;
     case Operand::Type::Immediate:
         data = operands[1].immVal.value;
-        break;
-    case Operand::Type::DirectAddress:
-        {
-            MemoryAccess memAccess{};
-            memAccess.type = operands[1].mem.pointsToWord ? MemoryAccess::Type::Word : MemoryAccess::Type::Byte;
-            memAccess.SetAddress(&mainMemory[operands[1].mem.disp]);
-            data = *memAccess;
-        }
         break;
     case Operand::Type::Memory:
         {
